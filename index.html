@@ -2,8 +2,8 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
+    <title>体重グラフ (WeightLogs)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>WeightLogs Frontend</title>
 
     <!-- BEGIN: Token Receiver (place this at the very top) -->
     <script>
@@ -33,197 +33,219 @@
     </script>
     <!-- END: Token Receiver -->
 
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
-      :root { color-scheme: light dark; }
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; line-height: 1.6; }
-      header { margin-bottom: 16px; }
-      .card { border: 1px solid #ccc; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-      .row { display:flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-      input[type="text"], input[type="url"] { padding: 8px; border: 1px solid #bbb; border-radius: 8px; width: 100%; max-width: 640px; }
-      button { padding: 8px 14px; border: 1px solid #888; border-radius: 8px; background: transparent; cursor: pointer; }
-      code { padding: 2px 6px; background: #f4f4f4; border-radius: 6px; }
-      .ok { color: #057a55; }
-      .warn { color: #b7791f; }
-      .err { color: #c53030; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-      .small { font-size: 0.9em; opacity: .9; }
-      .muted { opacity: .75; }
-      .hidden { display:none; }
-      .flex-col { display:flex; flex-direction:column; gap:8px; }
-      .mt8 { margin-top: 8px; }
-      .mt12 { margin-top: 12px; }
-      .mt16 { margin-top: 16px; }
-      .mt24 { margin-top: 24px; }
-      textarea { width: 100%; max-width: 780px; height: 160px; padding: 10px; border-radius: 8px; border: 1px solid #bbb; }
+      body {
+        font-family: system-ui, Segoe UI, Helvetica, Arial;
+        margin: 24px;
+        line-height: 1.6;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      input,
+      button {
+        font-size: 16px;
+        padding: 6px 10px;
+      }
+      canvas {
+        max-width: 960px;
+        width: 100%;
+        height: 360px;
+      }
+      small {
+        color: #555;
+      }
+      .grow {
+        flex: 1 1 360px;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
     </style>
   </head>
-
   <body>
-    <header>
-      <h1>WeightLogs Frontend</h1>
-      <div class="small muted">GitHub Pages 上で IdToken をローカルに保持し、API に <code>Authorization: Bearer &lt;idToken&gt;</code> を付与して呼び出します。</div>
-    </header>
+    <h1>体重遷移</h1>
 
-    <!-- 貼り付けUI（IdToken 未保存時のみ表示） -->
-    <div id="paste-token" class="card" style="display:none;">
-      <h2>IdToken を保存</h2>
-      <div class="flex-col">
-        <input id="token-input" placeholder="Paste IdToken here (A 側の認証で発行された IdToken を貼り付け)" />
-        <div class="row">
-          <button id="save-token-btn">保存してリロード</button>
-          <button id="clear-token-btn">削除</button>
-        </div>
-        <div class="small muted">URL で <code>?id_token=... </code> / <code>#id_token=...</code> で渡しても自動保存されます。</div>
-      </div>
+    <!-- （任意）貼り付けUI：指示書にある通り、そのまま追加 -->
+    <div id="paste-token" style="display:none;margin:12px 0;">
+      <input id="token-input" placeholder="Paste IdToken here" style="width:60%;">
+      <button onclick="localStorage.setItem('idToken', document.getElementById('token-input').value.trim()); location.reload();">保存</button>
+    </div>
+    <script>
+      if (!localStorage.getItem('idToken')) document.getElementById('paste-token').style.display='block';
+    </script>
+
+    <div class="row">
+      <label class="mono">IdToken:</label>
+      <input
+        id="idToken"
+        class="grow"
+        placeholder="eyJraWQiOiJYd3U0d092TzlmZVpmT2NqZ0R1M1pvb2owMkFWd2ljZ0F5dFZ1bWhzbGo0PSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiIwNDE4MTQzOC05MGExLTcwYjEtM2MxMy02MjRlNmRlZmY5NjMiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6XC9cL2NvZ25pdG8taWRwLnVzLWVhc3QtMS5hbWF6b25hd3MuY29tXC91cy1lYXN0LTFfODlsWWhCVEdJIiwiY29nbml0bzp1c2VybmFtZSI6IjA0MTgxNDM4LTkwYTEtNzBiMS0zYzEzLTYyNGU2ZGVmZjk2MyIsIm9yaWdpbl9qdGkiOiI4OTkwOGJkOC00NTE2LTRlY2YtYjMyNi05NjVkM2M2NDZmYTUiLCJhdWQiOiI2djBjYmsyb3Y5bnRsdXE0dGgzYjk3YnZuMCIsImV2ZW50X2lkIjoiZGIxN2NmOTEtZGY1OC00YzQzLWJiMDMtMzUzODVhZWMxZmE2IiwidG9rZW5fdXNlIjoiaWQiLCJhdXRoX3RpbWUiOjE3NjA1MzU2NTcsImV4cCI6MTc2MDYyMjA1NywiaWF0IjoxNzYwNTM1NjU3LCJqdGkiOiIyOWY3MzM5NC03OTAyLTRlMzgtYmQxMS1iMTQwOGFiZDM3NzMiLCJlbWFpbCI6InRlc3QxMDEzQGV4YW1wbGUuY29tIn0.PnWq95FT3PTkj7e-fr_4zVidIl_rhDfZ40L9CZlqHO2gbX89z4w0ekm9PIwC1xLUAyQnA_LOEXdCi1zucM1UZINLlfIO9Yk60bmwlZ3Yj_e9tGNxHg7_A4hJ48v0C9ear0cRJvhOcg-iKSJbqIQ9uVPb128ZCtMjw_S4bbSXFD3DVGruCHx0jleLn76Gx7hAvppWMtNClNnUI9nqjLzakNPesmtNFAGjhaKLekGn2YfHVbX7h_RCM4_Vz2_ZvuJVff1Gt5qeNyY-fEkhBXAW0Y5qpNyWS2vX7vA7V-l2wxHjUt-ZduiKh8BmvhYe2d4mNSbJ06-NhHxoPbtDxLnv1w"
+      />
     </div>
 
-    <!-- ステータス -->
-    <div class="card">
-      <h2>トークン・ステータス</h2>
-      <div id="token-status" class="mono">読み込み中...</div>
-      <div class="row mt8">
-        <button id="btn-show-claims">JWT クレームを表示（検証なしのデコード）</button>
-        <button id="btn-logout">ログアウト（IdToken 削除）</button>
-      </div>
-      <textarea id="claims-output" class="mt12 mono hidden" readonly></textarea>
-      <div class="small muted mt8">
-        * ここでの JWT デコードは署名検証を行いません（バックエンドで必ず検証してください）。<br/>
-        * セキュリティのためコンソール等にトークンを出力しないでください。
-      </div>
+    <div class="row">
+      <label>期間 from:</label>
+      <input id="from" type="datetime-local" />
+      <button id="load">読み込み（GET）</button>
+      <button id="add">今日の体重を追加（POST）</button>
     </div>
 
-    <!-- API テスト -->
-    <div class="card">
-      <h2>API テスト</h2>
-      <div class="flex-col">
-        <label for="api-base">API Base URL（要置換）</label>
-        <input id="api-base" type="url" placeholder="https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/prod" />
-        <div class="row">
-          <button id="btn-test-get">GET /health（例）</button>
-          <button id="btn-test-post">POST /echo（例）</button>
-        </div>
-        <textarea id="api-output" class="mt12 mono" readonly></textarea>
-      </div>
-      <div class="small muted mt8">
-        * CORS 設定（API Gateway）<br/>
-        Allowed Origin: <code>https://ars31ka.github.io</code><br/>
-        Allowed Headers: <code>Authorization, Content-Type</code><br/>
-        Allowed Methods: <code>GET,POST,OPTIONS</code><br/>
-        OPTIONS は 204 + 上記CORSヘッダ
-      </div>
+    <small
+      >※ トークンは一時的にブラウザの LocalStorage
+      に保存します（このPC内のみ）。無効化は「トークン消去」を押してください。</small
+    >
+    <div class="row" style="margin-top: 8px">
+      <button id="saveToken">トークン保存</button>
+      <button id="clearToken">トークン消去</button>
     </div>
+
+    <canvas id="chart"></canvas>
+
+    <pre
+      id="log"
+      style="
+        white-space: pre-wrap;
+        background: #f7f7f7;
+        padding: 8px;
+        border-radius: 6px;
+        margin-top: 12px;
+      "
+    ></pre>
 
     <script>
-      // ====== 設定：あなたの API Gateway のベース URL をここで設定 ======
-      // 例: "https://abc123.execute-api.ap-northeast-1.amazonaws.com/prod"
-      const DEFAULT_API_BASE = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod"; // ← 空のままでも UI 側で入力できます
+      // ====== 設定 ======
+      const BASE_URL =
+        "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
 
-      // 便利関数：API fetch ラッパ（Authorization 付与）
-      async function apiFetch(path, options = {}) {
-        const apiBaseInput = document.getElementById('api-base');
-        const base = (apiBaseInput.value || DEFAULT_API_BASE || "").replace(/\/+$/,'');
-        if (!base) throw new Error("API Base URL が未設定です。上の入力欄に設定してください。");
-        const url = base + (path.startsWith('/') ? path : '/' + path);
+      // ====== UI要素 ======
+      const $token = document.getElementById("idToken");
+      const $from = document.getElementById("from");
+      const $log = document.getElementById("log");
 
-        const headers = { ...(options.headers || {}), ...window.getAuthHeader() };
-        const res = await fetch(url, { ...options, headers });
+      // ====== LocalStorage（簡便） ======
+      (function restoreToken() {
+        const t = localStorage.getItem("idToken");
+        if (t) $token.value = t;
+      })();
 
-        // 表示用
-        const text = await res.text();
-        const out = [
-          `REQUEST  ${options.method || 'GET'} ${url}`,
-          `STATUS   ${res.status}`,
-          `HEADERS  ${JSON.stringify(Object.fromEntries(res.headers.entries()), null, 2)}`,
-          `BODY     ${text}`
-        ].join('\n');
-        document.getElementById('api-output').value = out;
+      document.getElementById("saveToken").onclick = () => {
+        const t = $token.value.trim();
+        if (!t) return alert("IdToken を入力してください");
+        localStorage.setItem("idToken", t);
+        alert("保存しました");
+      };
+      document.getElementById("clearToken").onclick = () => {
+        localStorage.removeItem("idToken");
+        $token.value = "";
+        alert("消去しました");
+      };
 
-        if (!res.ok) {
-          // 401/403/CORS失敗など
-          throw new Error(`API error: ${res.status}`);
-        }
-        try { return JSON.parse(text); } catch { return text; }
-      }
-
-      // ====== UI 初期化 ======
-      function updateTokenStatus() {
-        const t = localStorage.getItem('idToken');
-        const el = document.getElementById('token-status');
-        const paste = document.getElementById('paste-token');
-
-        if (t) {
-          const masked = t.length > 24 ? (t.slice(0, 12) + "..." + t.slice(-12)) : "(short token)";
-          el.innerHTML = `<span class="ok">IdToken 保存済み</span> <span class="small muted">(一部表示)</span>: <span class="mono">${masked}</span>`;
-          paste.style.display = 'none';
-        } else {
-          el.innerHTML = `<span class="warn">IdToken 未保存</span>：URL で <code>?id_token=...</code> を渡すか、下の入力欄に貼って保存してください。`;
-          paste.style.display = 'block';
-        }
-      }
-
-      // ====== イベント束ね ======
-      window.addEventListener('DOMContentLoaded', () => {
-        // API Base 既定値
-        document.getElementById('api-base').value = DEFAULT_API_BASE;
-
-        // 保存/削除ボタン
-        document.getElementById('save-token-btn').addEventListener('click', () => {
-          const v = document.getElementById('token-input').value.trim();
-          if (!v) return alert('IdToken を入力してください');
-          localStorage.setItem('idToken', v);
-          location.reload();
-        });
-        document.getElementById('clear-token-btn').addEventListener('click', () => {
-          localStorage.removeItem('idToken');
-          location.reload();
-        });
-        document.getElementById('btn-logout').addEventListener('click', () => {
-          localStorage.removeItem('idToken');
-          location.reload();
-        });
-
-        // JWT クレーム表示（検証なし）
-        document.getElementById('btn-show-claims').addEventListener('click', () => {
-          const t = localStorage.getItem('idToken');
-          const out = document.getElementById('claims-output');
-          if (!t) { alert('IdToken 未保存です'); return; }
-          try {
-            const parts = t.split('.');
-            if (parts.length < 2) throw new Error('JWT 形式ではありません');
-            const payload = JSON.parse(decodeURIComponent(escape(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))));
-            out.classList.remove('hidden');
-            out.value = JSON.stringify(payload, null, 2);
-          } catch (e) {
-            out.classList.remove('hidden');
-            out.value = 'デコードに失敗しました: ' + e.message;
-          }
-        });
-
-        // GET/POST テスト
-        document.getElementById('btn-test-get').addEventListener('click', async () => {
-          try {
-            await apiFetch('/health', { method: 'GET' });
-          } catch (e) {
-            // 画面下部に結果は出るのでここでは控えめに
-            console.warn(e);
-          }
-        });
-
-        document.getElementById('btn-test-post').addEventListener('click', async () => {
-          try {
-            await apiFetch('/echo', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ now: new Date().toISOString(), hello: 'world' })
-            });
-          } catch (e) {
-            console.warn(e);
-          }
-        });
-
-        // 初期ステータス表示
-        updateTokenStatus();
+      // ====== Chart.js 初期化 ======
+      const ctx = document.getElementById("chart");
+      const chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [{ label: "体重 (kg)", data: [], tension: 0.2 }],
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: "nearest", intersect: false },
+          scales: {
+            x: { title: { display: true, text: "日時 (ローカル)" } },
+            y: {
+              title: { display: true, text: "kg" },
+              suggestedMin: 40,
+              suggestedMax: 90,
+            },
+          },
+          plugins: { legend: { display: true } },
+        },
       });
+
+      // ISO → ローカル表示
+      function fmtLocal(iso) {
+        const d = new Date(iso);
+        if (isNaN(d)) return iso;
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+          d.getDate()
+        )} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+      function log(msg) {
+        $log.textContent = String(msg);
+      }
+
+      // ※ ここにあった独自の getAuthHeader は削除しました（指示書の window.getAuthHeader を使うため）
+
+      // ====== データ取得 → グラフ描画 ======
+      async function fetchAndDraw() {
+        try {
+          const fromVal = $from.value;
+          const fromISO = fromVal
+            ? new Date(fromVal).toISOString()
+            : "1970-01-01T00:00:00Z";
+          const url = `${BASE_URL}/weights?from=${encodeURIComponent(fromISO)}`;
+
+          const res = await fetch(url, { headers: window.getAuthHeader() });
+          const text = await res.text();
+          if (!res.ok) throw new Error(`GET 失敗: ${res.status} ${text}`);
+          const json = JSON.parse(text);
+          const items = (json.items || [])
+            .slice()
+            .sort((a, b) => a.loggedAt.localeCompare(b.loggedAt));
+
+          chart.data.labels = items.map((x) => fmtLocal(x.loggedAt));
+          chart.data.datasets[0].data = items.map((x) => Number(x.weightKg));
+          chart.update();
+          log(
+            `GET OK (${items.length}件)\n` +
+              JSON.stringify(items.slice(-5), null, 2)
+          ); // 末尾5件だけ表示
+        } catch (e) {
+          console.error(e);
+          log(e.message || e);
+          alert(e.message || e);
+        }
+      }
+
+      // ====== 体重を1件追加（POST） ======
+      async function addWeight() {
+        try {
+          const input = prompt("今日の体重(kg)を入力:", "62.8");
+          if (input == null) return;
+          const weight = Number(input);
+          if (!Number.isFinite(weight)) return alert("数値を入力してください");
+
+          const res = await fetch(`${BASE_URL}/weights`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...window.getAuthHeader() },
+            body: JSON.stringify({ weightKg: weight }),
+          });
+          const text = await res.text();
+          if (!res.ok) throw new Error(`POST 失敗: ${res.status} ${text}`);
+          log(`POST OK\n${text}`);
+          await fetchAndDraw();
+        } catch (e) {
+          console.error(e);
+          log(e.message || e);
+          alert(e.message || e);
+        }
+      }
+
+      // イベント
+      document.getElementById("load").addEventListener("click", fetchAndDraw);
+      document.getElementById("add").addEventListener("click", addWeight);
+
+      // 初期表示（必要ならコメントアウト）
+      fetchAndDraw();
     </script>
   </body>
 </html>
