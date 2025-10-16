@@ -103,9 +103,26 @@
       }
       .lg-dot{width:10px; height:10px; border-radius:50%}
 
-      canvas{width:100%; height:440px}
-      .log{white-space:pre-wrap;background:rgba(255,255,255,.06);border:1px solid var(--line);
-           color:#e5edff;border-radius:12px;padding:10px;margin-top:12px}
+      /* ▼▼ グラフの固定レイアウト（重要） ▼▼ */
+      .chartbox{
+        position: relative;
+        width: 100%;
+        height: 440px;            /* ここで固定高さ */
+      }
+      .chartbox canvas{
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+        display: block;           /* ベースライン余白を消す */
+      }
+      /* ▲▲ ここまで ▲▲ */
+
+      .log{
+        white-space:pre-wrap;background:rgba(255,255,255,.06);border:1px solid var(--line);
+        color:#e5edff;border-radius:12px;padding:10px;margin-top:12px;
+        max-height:180px; overflow:auto; /* ログで押し下げない */
+      }
       .small{font-size:13px; color:var(--muted)}
       .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
 
@@ -163,7 +180,7 @@
         <div class="legend" style="margin:2px 2px 6px">
           <div class="lg-dot" id="lg1" style="background:var(--accent)"></div><span>体重 (kg)</span>
         </div>
-        <canvas id="chart"></canvas>
+        <div class="chartbox"><canvas id="chart"></canvas></div>
       </div>
 
       <!-- ログ -->
@@ -238,7 +255,9 @@
       function setBusy(b, ids=["load","add"]){
         ids.forEach(id=>{
           const el=document.getElementById(id);
-          el.disabled=b; el.style.opacity=b?.6:1; el.style.cursor=b?"wait":"pointer";
+          el.disabled = b;
+          el.style.opacity = b ? 0.6 : 1;   // ← 修正
+          el.style.cursor  = b ? "wait" : "pointer";
         });
       }
 
@@ -247,13 +266,13 @@
       function applyTheme(theme){
         const root=document.documentElement.style;
         Object.entries(theme.vars).forEach(([k,v])=> root.setProperty(k,v));
-        // チャート色変更
         if(chart){
           chart.data.datasets[0].borderColor = theme.stroke;
-          chart.data.datasets[0].backgroundColor = theme.fillTo; // 更新時に上書き
-          // 凡例のドット
+          // テーマ変更時もグラデーションを作り直して適用
+          areaGradient = makeGradient(chart.ctx);
+          chart.data.datasets[0].backgroundColor = areaGradient;
           document.getElementById('lg1').style.background = theme.stroke;
-          chart.update();
+          chart.update('none');
         }
         localStorage.setItem('wl_theme', theme.key);
       }
@@ -294,7 +313,6 @@
       // ====== Chart.js 初期化 ======
       function makeGradient(ctx){
         const g=ctx.createLinearGradient(0,0,0,ctx.canvas.height);
-        // 上→下でアクセントから透明へ
         const theme = THEMES.find(x=>x.key===localStorage.getItem('wl_theme')) || THEMES[0];
         g.addColorStop(0, theme.fillTo);
         g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -395,7 +413,7 @@
 
           chart.data.labels=items.map(x=> fmtLocal(x.loggedAt));
           chart.data.datasets[0].data=items.map(x=> Number(x.weightKg));
-          chart.update();
+          chart.update('none'); // ← 揺れを抑制
 
           if(items.length===0){
             log("データはありません");
