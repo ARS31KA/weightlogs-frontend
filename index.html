@@ -25,125 +25,134 @@
     </script>
     <!-- END: Token Receiver -->
 
-    <!-- Chart.js CDN -->
+    <!-- Chart.js & DataLabels -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
     <style>
       :root{
-        /* 初期テーマ（Tropical） */
-        --bg0:#05070b; --bg1:#0b1020;
-        --card:#0f1730; --text:#f4f7ff; --muted:#bcd0ff; --line:#1a2852;
-        --accent:#22d1ee; --accent2:#f72585; --accent3:#ffd166;
-        --chip-bg:#102147;
+        /* 明るい固定テーマ（サービス側で指定） */
+        --bg0:#f4f7fb;
+        --bg1:#eaf0ff;
+        --card:#ffffff;
+        --text:#0c1b36;
+        --muted:#5e6b86;
+        --line:#d6deee;
+        --accent:#2f7cf6;     /* ライン＆強調 */
+        --accent2:#18c3a1;    /* 補助アクセント（ボタンのグラデ） */
+        --grid:#c9d6ee;       /* グリッド線 */
+        --chip:#eff4ff;
       }
+
       *{box-sizing:border-box}
       html,body{height:100%}
       body{
-        margin:0; padding:24px;
-        background: radial-gradient(1200px 600px at 20% -10%, var(--bg1) 0%, var(--bg0) 55%),
-                    radial-gradient(800px 600px at 110% 0%, rgba(34,209,238,.15) 0%, transparent 60%),
-                    radial-gradient(900px 700px at -10% 100%, rgba(247,37,133,.10) 0%, transparent 60%),
-                    linear-gradient(180deg, var(--bg1), var(--bg0));
+        margin:0; padding:28px;
+        background:
+          radial-gradient(1200px 600px at 20% -10%, var(--bg1) 0%, var(--bg0) 60%),
+          linear-gradient(180deg, var(--bg1), var(--bg0));
         color:var(--text);
-        font:16px/1.65 system-ui, Segoe UI, Helvetica, Arial;
+        font:16px/1.7 system-ui, Segoe UI, Helvetica, Arial;
       }
-      .container{max-width:1080px;margin:0 auto}
-      h1{margin:0 0 8px; font-weight:800; letter-spacing:.4px; font-size:30px}
-      .subtitle{color:var(--muted); margin-bottom:18px}
 
-      .chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px}
-      .chip{
-        background:var(--chip-bg); color:var(--text); border:1px solid var(--line);
-        padding:8px 10px; border-radius:999px; cursor:pointer; user-select:none;
-        font-size:13px; display:inline-flex; align-items:center; gap:8px;
-        transition:.18s transform,.18s filter;
+      .container{max-width:1080px;margin:0 auto}
+
+      /* ヘッダー（見出しをデザイン） */
+      header.apphead{
+        display:flex; align-items:center; gap:14px; margin-bottom:16px;
       }
-      .chip:hover{transform:translateY(-1px); filter:brightness(1.06)}
-      .chip .dot{width:10px;height:10px;border-radius:50%}
+      .logo{
+        width:42px; height:42px; border-radius:12px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        box-shadow:0 8px 18px rgba(47,124,246,.25);
+        display:grid; place-items:center; color:#fff; font-weight:800;
+      }
+      h1{
+        margin:0; font-size:26px; letter-spacing:.2px; font-weight:800;
+      }
+      .subtitle{margin:2px 0 18px; color:var(--muted)}
 
       .card{
-        background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02));
-        backdrop-filter:saturate(120%) blur(6px);
+        background:var(--card);
         border:1px solid var(--line);
         border-radius:16px;
-        box-shadow:0 10px 30px rgba(0,0,0,.35);
-        padding:16px 16px;
+        box-shadow:0 8px 20px rgba(17,32,64,.06);
+        padding:16px;
       }
 
-      .row,.toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+      .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
       .field{display:flex; gap:8px; align-items:center; flex:1 1 auto}
       label{color:var(--muted); font-size:13px}
       input{
-        background:rgba(255,255,255,.06); color:var(--text);
+        background:#f8fbff; color:var(--text);
         border:1px solid var(--line);
         border-radius:12px; padding:10px 12px;
         outline:none;
       }
-      input::placeholder{color:#9db0d9}
+      input::placeholder{color:#9aa8bf}
       input[type="datetime-local"]{min-width:240px}
       input.grow{flex:1 1 420px}
 
       .btn{
         border:1px solid var(--line);
-        background:rgba(255,255,255,.06); color:var(--text);
+        background:#f8fbff; color:var(--text);
         padding:10px 14px; border-radius:12px; cursor:pointer;
         transition:.15s transform,.15s background,.15s border-color,.15s filter;
       }
-      .btn:hover{transform:translateY(-1px); border-color:#3856a8}
+      .btn:hover{transform:translateY(-1px); border-color:#b7c6de; background:#ffffff}
       .btn:disabled{opacity:.6; cursor:not-allowed}
       .btn-primary{
-        background: linear-gradient(90deg, var(--accent2), var(--accent));
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
         border-color:transparent; color:#fff;
       }
       .btn-primary:hover{filter:brightness(1.06)}
-      .btn-ghost{background:transparent}
 
-      .legend{
-        display:flex; gap:10px; align-items:center; color:var(--muted); font-size:13px
-      }
-      .lg-dot{width:10px; height:10px; border-radius:50%}
-
-      /* ▼▼ グラフの固定レイアウト（重要） ▼▼ */
+      /* グラフ領域（下がり続け防止の固定レイアウト） */
       .chartbox{
         position: relative;
         width: 100%;
-        height: 440px;            /* ここで固定高さ */
+        height: 480px;
+        border:1px dashed var(--line);
+        border-radius:12px;
+        background: var(--chip);
       }
       .chartbox canvas{
         position: absolute;
         inset: 0;
         width: 100% !important;
         height: 100% !important;
-        display: block;           /* ベースライン余白を消す */
+        display: block;
       }
-      /* ▲▲ ここまで ▲▲ */
 
+      /* 非表示ログ（DB内容はユーザから見えない） */
       .log{
-        white-space:pre-wrap;background:rgba(255,255,255,.06);border:1px solid var(--line);
-        color:#e5edff;border-radius:12px;padding:10px;margin-top:12px;
-        max-height:180px; overflow:auto; /* ログで押し下げない */
+        display:none !important;    /* ★ ユーザ非表示 */
+        white-space:pre-wrap; background:#f8fbff; border:1px solid var(--line);
+        color:#334568; border-radius:12px; padding:10px; margin-top:12px;
+        max-height:180px; overflow:auto;
       }
+
       .small{font-size:13px; color:var(--muted)}
       .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
 
       .toast{
         position:fixed; right:20px; bottom:20px; z-index:9999;
-        background:linear-gradient(180deg, #0b122a, #0a1022);
+        background:#ffffff;
         border:1px solid var(--line); color:var(--text);
-        padding:12px 14px; border-radius:12px; box-shadow:0 10px 26px rgba(0,0,0,.4);
+        padding:12px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(17,32,64,.12);
         display:none; max-width:380px
       }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>体重遷移</h1>
-      <div class="subtitle">テーマを切り替えて見やすい配色で表示できます（下のカラーチップ）。</div>
-
-      <!-- テーマ切替 -->
-      <div class="chips" id="theme-chips">
-        <!-- クリックで切替。JSで中身を埋める -->
-      </div>
+      <header class="apphead">
+        <div class="logo">W</div>
+        <div>
+          <h1>体重管理アプリ</h1>
+          <div class="subtitle">サービス指定の明るい配色で、点マーカー＆数値表示つきの見やすいグラフを表示します。</div>
+        </div>
+      </header>
 
       <!-- トークンカード -->
       <div class="card" style="margin-bottom:14px">
@@ -153,7 +162,7 @@
             <input id="idToken" class="grow" placeholder="Paste または URL ?id_token=... で自動保存">
           </div>
           <button id="saveToken" class="btn">トークン保存</button>
-          <button id="clearToken" class="btn btn-ghost">トークン消去</button>
+          <button id="clearToken" class="btn">トークン消去</button>
         </div>
         <div id="paste-token" style="display:none;margin-top:10px" class="field">
           <input id="token-input" placeholder="Paste IdToken here" style="width:60%">
@@ -169,22 +178,20 @@
             <label>期間 from</label>
             <input id="from" type="datetime-local">
           </div>
-          <button id="load" class="btn">読み込み（GET）</button>
-          <button id="add" class="btn btn-primary">今日の体重を追加（POST）</button>
+          <!-- ★ ラベル文言を指定のとおり変更 -->
+          <button id="load" class="btn">グラフを表示</button>
+          <button id="add" class="btn btn-primary">今日の体重を追加</button>
           <span id="last-updated" class="small" style="margin-left:auto">—</span>
         </div>
       </div>
 
       <!-- グラフ -->
       <div class="card" style="margin-bottom:10px">
-        <div class="legend" style="margin:2px 2px 6px">
-          <div class="lg-dot" id="lg1" style="background:var(--accent)"></div><span>体重 (kg)</span>
-        </div>
         <div class="chartbox"><canvas id="chart"></canvas></div>
       </div>
 
-      <!-- ログ -->
-      <pre id="log" class="log"></pre>
+      <!-- 非表示ログ（DBレスポンスや内部ログを格納） -->
+      <pre id="log" class="log" aria-hidden="true"></pre>
     </div>
 
     <div id="toast" class="toast"></div>
@@ -193,59 +200,14 @@
       // ====== 設定 ======
       const BASE_URL = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
 
-      // ====== テーマ定義（カラフル5種） ======
-      const THEMES = [
-        {
-          key:'tropical', name:'Tropical',
-          vars:{
-            '--bg0':'#05070b','--bg1':'#0b1020','--card':'#0f1730','--text':'#f4f7ff','--muted':'#bcd0ff','--line':'#1a2852',
-            '--accent':'#22d1ee','--accent2':'#f72585','--accent3':'#ffd166','--chip-bg':'#102147'
-          },
-          stroke:'#22d1ee', fillFrom:'#22d1ee', fillTo:'rgba(34,209,238,0.10)'
-        },
-        {
-          key:'sunset', name:'Sunset',
-          vars:{
-            '--bg0':'#14070f','--bg1':'#220d18','--card':'#2b1421','--text':'#fff4f0','--muted':'#f8c6bd','--line':'#402233',
-            '--accent':'#ff6b6b','--accent2':'#f7b801','--accent3':'#6a4c93','--chip-bg':'#3a1c2b'
-          },
-          stroke:'#ff6b6b', fillFrom:'#ff6b6b', fillTo:'rgba(255,107,107,0.12)'
-        },
-        {
-          key:'mint', name:'Mint',
-          vars:{
-            '--bg0':'#06120f','--bg1':'#0c1f1a','--card':'#0f2822','--text':'#eafff8','--muted':'#b8f2de','--line':'#1c3b33',
-            '--accent':'#2ec4b6','--accent2':'#a1ff0a','--accent3':'#ff9f1c','--chip-bg':'#11362e'
-          },
-          stroke:'#2ec4b6', fillFrom:'#2ec4b6', fillTo:'rgba(46,196,182,0.12)'
-        },
-        {
-          key:'candy', name:'Candy',
-          vars:{
-            '--bg0':'#0d0a13','--bg1':'#151025','--card':'#1d1433','--text':'#f9f2ff','--muted':'#e4c9ff','--line':'#2e1d52',
-            '--accent':'#d946ef','--accent2':'#f97316','--accent3':'#22d3ee','--chip-bg':'#241339'
-          },
-          stroke:'#d946ef', fillFrom:'#d946ef', fillTo:'rgba(217,70,239,0.12)'
-        },
-        {
-          key:'ocean', name:'Ocean',
-          vars:{
-            '--bg0':'#020b15','--bg1':'#05172a','--card':'#0a233d','--text':'#e9f6ff','--muted':'#b7dbff','--line':'#113558',
-            '--accent':'#3aa7ff','--accent2':'#00e1ff','--accent3':'#9bff6a','--chip-bg':'#0b2c4b'
-          },
-          stroke:'#3aa7ff', fillFrom:'#3aa7ff', fillTo:'rgba(58,167,255,0.12)'
-        }
-      ];
-
       // ====== 要素参照 ======
       const $token = document.getElementById("idToken");
       const $from  = document.getElementById("from");
       const $log   = document.getElementById("log");
       const $toast = document.getElementById("toast");
-      const $chips = document.getElementById("theme-chips");
 
       // ====== トースト & ローディング ======
-      function toast(msg, type="ok", ms=2800){
+      function toast(msg, type="ok", ms=2600){
         $toast.className = `toast ${type}`;
         $toast.textContent = String(msg);
         $toast.style.display = 'block';
@@ -256,37 +218,8 @@
         ids.forEach(id=>{
           const el=document.getElementById(id);
           el.disabled = b;
-          el.style.opacity = b ? 0.6 : 1;   // ← 修正
+          el.style.opacity = b ? 0.6 : 1;
           el.style.cursor  = b ? "wait" : "pointer";
-        });
-      }
-
-      // ====== テーマ適用 ======
-      let chart, areaGradient;
-      function applyTheme(theme){
-        const root=document.documentElement.style;
-        Object.entries(theme.vars).forEach(([k,v])=> root.setProperty(k,v));
-        if(chart){
-          chart.data.datasets[0].borderColor = theme.stroke;
-          // テーマ変更時もグラデーションを作り直して適用
-          areaGradient = makeGradient(chart.ctx);
-          chart.data.datasets[0].backgroundColor = areaGradient;
-          document.getElementById('lg1').style.background = theme.stroke;
-          chart.update('none');
-        }
-        localStorage.setItem('wl_theme', theme.key);
-      }
-
-      // テーマUI生成
-      function buildThemeChips(){
-        $chips.innerHTML='';
-        THEMES.forEach(t=>{
-          const chip=document.createElement('div');
-          chip.className='chip';
-          chip.title=t.name;
-          chip.innerHTML=`<span class="dot" style="background:${t.stroke}"></span>${t.name}`;
-          chip.onclick=()=>{ applyTheme(t); toast(`${t.name} テーマを適用しました`) };
-          $chips.appendChild(chip);
         });
       }
 
@@ -311,74 +244,83 @@
       };
 
       // ====== Chart.js 初期化 ======
-      function makeGradient(ctx){
-        const g=ctx.createLinearGradient(0,0,0,ctx.canvas.height);
-        const theme = THEMES.find(x=>x.key===localStorage.getItem('wl_theme')) || THEMES[0];
-        g.addColorStop(0, theme.fillTo);
-        g.addColorStop(1, 'rgba(0,0,0,0)');
-        return g;
-      }
+      let chart;
 
       function initChart(){
         const ctx = document.getElementById("chart").getContext('2d');
-        areaGradient = makeGradient(ctx);
-        const theme = THEMES.find(x=>x.key===localStorage.getItem('wl_theme')) || THEMES[0];
+
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        const grid   = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
 
         chart = new Chart(ctx, {
           type: "line",
-          data: { labels: [], datasets: [{
-            label: "体重 (kg)",
-            data: [],
-            tension: 0.3,
-            borderWidth: 3,
-            pointRadius: 0,
-            borderColor: theme.stroke,
-            backgroundColor: areaGradient,
-            fill: true,
-          }]},
+          data: {
+            labels: [],
+            datasets: [{
+              label: "体重 (kg)",
+              data: [],
+              tension: 0.2,
+              borderWidth: 3,
+              pointRadius: 4,              // ★ 点のマーカー
+              pointHoverRadius: 6,
+              borderColor: accent,
+              backgroundColor: "rgba(47,124,246,0.10)", // 薄い塗り
+              fill: true,
+            }]
+          },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: { duration: 300 },
+            animation: { duration: 250 },
             interaction: { mode: "nearest", intersect: false },
             plugins: {
-              legend: { labels: { color: "var(--muted)" } },
+              legend: {
+                labels: { color: "var(--muted)" }
+              },
               tooltip: {
-                backgroundColor: "rgba(20,24,40,.92)",
-                titleColor: "#fff", bodyColor: "#dbe6ff",
+                backgroundColor: "#ffffff",
+                borderColor: "#d7dfec",
+                borderWidth: 1,
+                titleColor: "#0c1b36", bodyColor: "#334568",
                 callbacks: {
                   label: (ctx)=> ` ${ctx.parsed.y.toFixed(1)} kg`,
                   title: (items)=> items.map(it=> it.label)
                 }
               },
+              // ★ 各点のすぐ横に値を表示（見やすさ向上）
+              datalabels: {
+                color: "#0c1b36",
+                align: 'right',      // 点の右側
+                anchor: 'end',
+                offset: 6,
+                clip: false,
+                formatter: (v)=> `${Number(v).toFixed(1)} kg`,
+                font: { size: 12, weight: '600' },
+                display: (ctx)=>{
+                  const n = ctx.chart.data.datasets[0].data.length;
+                  // 多数データ時の重なり軽減（必要に応じて調整）
+                  if(n>40) return ctx.dataIndex%2===0;
+                  return true;
+                }
+              }
             },
             scales: {
               x: {
-                grid: { color: "rgba(255,255,255,.06)" },
+                grid: { color: grid },
                 ticks: { color: "var(--muted)" },
                 title: { display: true, text: "日時 (ローカル)", color: "var(--muted)" },
               },
               y: {
-                grid: { color: "rgba(255,255,255,.06)" },
+                grid: { color: grid },
                 ticks: { color: "var(--muted)" },
                 suggestedMin: 40, suggestedMax: 90,
                 title: { display: true, text: "kg", color: "var(--muted)" },
               },
             },
           },
+          plugins: [ChartDataLabels]
         });
-
-        document.getElementById('lg1').style.background = theme.stroke;
       }
-
-      // グラデ更新（リサイズ時に再作成）
-      window.addEventListener('resize', ()=>{
-        if(!chart) return;
-        const ctx = chart.ctx;
-        areaGradient = makeGradient(ctx);
-        chart.data.datasets[0].backgroundColor = areaGradient;
-        chart.update('none');
-      });
 
       // ====== ユーティリティ ======
       const pad = (n) => String(n).padStart(2,"0");
@@ -386,21 +328,21 @@
         const d=new Date(iso); if(isNaN(d)) return iso;
         return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       }
-      function log(msg){ $log.textContent=String(msg); }
+      function log(msg){ $log.textContent=String(msg); } // ★ 非表示のまま内部保存（ユーザには見えない）
 
       // 初期 from（直近1か月）
       (function setDefaultFrom(){
-        if ($from.value) return;
+        if ($from?.value) return;
         const d=new Date(); d.setMonth(d.getMonth()-1);
         const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-        $from.value=local;
+        document.getElementById("from").value=local;
       })();
 
       // ====== データ取得 → グラフ描画 ======
       async function fetchAndDraw(){
         try{
           setBusy(true);
-          const fromVal=$from.value;
+          const fromVal=document.getElementById("from").value;
           const fromISO=fromVal? new Date(fromVal).toISOString() : "1970-01-01T00:00:00Z";
           const url=`${BASE_URL}/weights?from=${encodeURIComponent(fromISO)}`;
 
@@ -411,16 +353,18 @@
           const json=JSON.parse(text);
           const items=(json.items||[]).slice().sort((a,b)=> a.loggedAt.localeCompare(b.loggedAt));
 
+          // ラベルはローカル表記、値は数値化
           chart.data.labels=items.map(x=> fmtLocal(x.loggedAt));
           chart.data.datasets[0].data=items.map(x=> Number(x.weightKg));
-          chart.update('none'); // ← 揺れを抑制
+          chart.update('none'); // レイアウトの揺れを抑制
 
+          // 内部ログへ（ユーザには非表示）
           if(items.length===0){
             log("データはありません");
             toast("データはありません","ok");
           }else{
-            log(`GET OK (${items.length}件)\n`+JSON.stringify(items.slice(-5),null,2));
-            toast("読み込み完了");
+            log(`GET OK (${items.length}件)\n`+JSON.stringify(items.slice(-10),null,2));
+            toast("グラフを更新しました");
           }
           document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
         }catch(e){
@@ -452,14 +396,7 @@
       }
 
       // ====== 初期化 ======
-      buildThemeChips();
       initChart();
-      // 前回テーマを復元
-      (function restoreTheme(){
-        const k=localStorage.getItem('wl_theme'); 
-        const t=THEMES.find(x=>x.key===k) || THEMES[0];
-        applyTheme(t);
-      })();
 
       document.getElementById("load").addEventListener("click", fetchAndDraw);
       document.getElementById("add").addEventListener("click", addWeight);
@@ -469,4 +406,3 @@
     </script>
   </body>
 </html>
-
