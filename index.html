@@ -2,307 +2,409 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <title>体重・体脂肪率グラフ (WeightLogs)</title>
+    <title>体重管理アプリ</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-
-    <!-- BEGIN: Token Receiver -->
+    <!-- BEGIN: Token Receiver (place this at the very top) -->
     <script>
-      (function () {
-        const qs = new URLSearchParams(location.search);
-        const hs = new URLSearchParams(location.hash.slice(1));
-        const tok =
-          qs.get("id_token") ||
-          qs.get("token") ||
-          hs.get("id_token") ||
-          hs.get("token");
-        if (tok) {
-          localStorage.setItem("idToken", tok);
-          try {
-            history.replaceState({}, "", location.pathname);
-          } catch (e) {}
-        }
-
-        window.getAuthHeader = function () {
-          const t = localStorage.getItem("idToken");
-          if (!t)
-            throw new Error(
-              "IdToken が未入力です（A の認証後にURLで受け取るか、貼り付けで保存してください）"
-            );
-          return { Authorization: "Bearer " + t };
-        };
-      })();
+    (function(){
+      const qs=new URLSearchParams(location.search);
+      const hs=new URLSearchParams(location.hash.slice(1));
+      const tok=qs.get('id_token')||qs.get('token')||hs.get('id_token')||hs.get('token');
+      if(tok){
+        localStorage.setItem('idToken', tok);
+        try{history.replaceState({}, "", location.pathname + location.search.replace(/(\?|&)id_token=[^&#]*/,'').replace(/(\?|&)token=[^&#]*/,'').replace(/\?$/,'') );}catch(e){}
+        try{history.replaceState({}, "", location.pathname + location.search);}catch(e){}
+      }
+      window.getAuthHeader=function(){
+        const t=localStorage.getItem('idToken');
+        if(!t) throw new Error('IdToken が未入力です（A の認証後に受け取った IdToken を URL で渡すか、このページの入力欄に貼って保存してください）');
+        return { Authorization:'Bearer '+t };
+      };
+    })();
     </script>
     <!-- END: Token Receiver -->
 
+    <!-- Chart.js & DataLabels -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
     <style>
-      body {
-        font-family: "Segoe UI", Helvetica, Arial, sans-serif;
-        margin: 20px;
-        background: linear-gradient(135deg, #111827, #1f2937);
-        color: #e5e7eb;
+      :root{
+        /* 明るい固定テーマ（サービス側で指定） */
+        --bg0:#f4f7fb;
+        --bg1:#eaf0ff;
+        --card:#ffffff;
+        --text:#0c1b36;
+        --muted:#5e6b86;
+        --line:#d6deee;
+        --accent:#2f7cf6;     /* ライン＆強調 */
+        --accent2:#18c3a1;    /* 補助アクセント（ボタンのグラデ） */
+        --grid:#c9d6ee;       /* グリッド線 */
+        --chip:#eff4ff;
       }
-      h1 {
-        text-align: center;
-        color: #60a5fa;
+
+      *{box-sizing:border-box}
+      html,body{height:100%}
+      body{
+        margin:0; padding:28px;
+        background:
+          radial-gradient(1200px 600px at 20% -10%, var(--bg1) 0%, var(--bg0) 60%),
+          linear-gradient(180deg, var(--bg1), var(--bg0));
+        color:var(--text);
+        font:16px/1.7 system-ui, Segoe UI, Helvetica, Arial;
       }
-      .card {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        margin-bottom: 16px;
+
+      .container{max-width:1080px;margin:0 auto}
+
+      /* ヘッダー（見出しをデザイン） */
+      header.apphead{
+        display:flex; align-items:center; gap:14px; margin-bottom:16px;
       }
-      .toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 8px;
+      .logo{
+        width:42px; height:42px; border-radius:12px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        box-shadow:0 8px 18px rgba(47,124,246,.25);
+        display:grid; place-items:center; color:#fff; font-weight:800;
       }
-      button {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 6px 12px;
-        cursor: pointer;
+      h1{
+        margin:0; font-size:26px; letter-spacing:.2px; font-weight:800;
       }
-      button:hover {
-        background: #2563eb;
+      .subtitle{margin:2px 0 18px; color:var(--muted)}
+
+      .card{
+        background:var(--card);
+        border:1px solid var(--line);
+        border-radius:16px;
+        box-shadow:0 8px 20px rgba(17,32,64,.06);
+        padding:16px;
       }
-      .btn-ghost {
-        background: transparent;
-        border: 1px solid #3b82f6;
+
+      .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+      .field{display:flex; gap:8px; align-items:center; flex:1 1 auto}
+      label{color:var(--muted); font-size:13px}
+      input{
+        background:#f8fbff; color:var(--text);
+        border:1px solid var(--line);
+        border-radius:12px; padding:10px 12px;
+        outline:none;
       }
-      .small {
-        font-size: 14px;
-        color: #9ca3af;
+      input::placeholder{color:#9aa8bf}
+      input[type="datetime-local"]{min-width:240px}
+      input.grow{flex:1 1 420px}
+
+      .btn{
+        border:1px solid var(--line);
+        background:#f8fbff; color:var(--text);
+        padding:10px 14px; border-radius:12px; cursor:pointer;
+        transition:.15s transform,.15s background,.15s border-color,.15s filter;
       }
-      input {
-        font-size: 16px;
-        padding: 6px;
-        border-radius: 6px;
-        border: none;
-        flex: 1;
+      .btn:hover{transform:translateY(-1px); border-color:#b7c6de; background:#ffffff}
+      .btn:disabled{opacity:.6; cursor:not-allowed}
+      .btn-primary{
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        border-color:transparent; color:#fff;
       }
-      canvas {
+      .btn-primary:hover{filter:brightness(1.06)}
+
+      /* グラフ領域（下がり続け防止の固定レイアウト） */
+      .chartbox{
+        position: relative;
         width: 100%;
-        height: 380px;
+        height: 480px;
+        border:1px dashed var(--line);
+        border-radius:12px;
+        background: var(--chip);
       }
-      pre {
-        background: rgba(255, 255, 255, 0.07);
-        padding: 8px;
-        border-radius: 6px;
-        overflow-x: auto;
+      .chartbox canvas{
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
+      }
+
+      /* 非表示ログ（DB内容はユーザから見えない） */
+      .log{
+        display:none !important;    /* ★ ユーザ非表示 */
+        white-space:pre-wrap; background:#f8fbff; border:1px solid var(--line);
+        color:#334568; border-radius:12px; padding:10px; margin-top:12px;
+        max-height:180px; overflow:auto;
+      }
+
+      .small{font-size:13px; color:var(--muted)}
+      .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
+
+      .toast{
+        position:fixed; right:20px; bottom:20px; z-index:9999;
+        background:#ffffff;
+        border:1px solid var(--line); color:var(--text);
+        padding:12px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(17,32,64,.12);
+        display:none; max-width:380px
       }
     </style>
   </head>
-
   <body>
-    <h1>体重・体脂肪率グラフ</h1>
+    <div class="container">
+      <header class="apphead">
+        <div class="logo">W</div>
+        <div>
+          <h1>体重管理アプリ</h1>
+          <div class="subtitle">サービス指定の明るい配色で、点マーカー＆数値表示つきの見やすいグラフを表示します。</div>
+        </div>
+      </header>
 
-    <!-- 🔐 トークン管理UI（非表示方式B） -->
-    <div class="card">
-      <div class="toolbar">
-        <span id="tokenStatus" class="small">—</span>
-        <div style="display:flex; gap:6px;">
-          <button id="showPaste">トークン貼り付け</button>
-          <button id="clearToken" class="btn-ghost">トークン消去</button>
+      <!-- トークンカード -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="toolbar">
+          <div class="field">
+            <label class="mono">IdToken</label>
+            <!-- ▼▼▼ ここだけ変更：type="password" を追加（マスク表示） ▼▼▼ -->
+            <input id="idToken" class="grow" type="password" placeholder="Paste または URL ?id_token=... で自動保存">
+            <!-- ▲▲▲ ここだけ変更 ▲▲▲ -->
+          </div>
+          <button id="saveToken" class="btn">トークン保存</button>
+          <button id="clearToken" class="btn">トークン消去</button>
+        </div>
+        <div id="paste-token" style="display:none;margin-top:10px" class="field">
+          <input id="token-input" placeholder="Paste IdToken here" style="width:60%">
+          <button class="btn" onclick="localStorage.setItem('idToken', document.getElementById('token-input').value.trim()); location.reload();">保存</button>
+          <span class="small">※ 未保存のときだけ表示</span>
         </div>
       </div>
 
-      <div id="paste-token" style="display:none; margin-top:10px;">
-        <input id="token-input" placeholder="IdToken をここに貼り付け" style="width:60%">
-        <button id="doSavePaste">保存</button>
+      <!-- 操作カード -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="toolbar">
+          <div class="field" style="flex:0 0 auto">
+            <label>期間 from</label>
+            <input id="from" type="datetime-local">
+          </div>
+          <!-- ★ ラベル文言を指定のとおり変更 -->
+          <button id="load" class="btn">グラフを表示</button>
+          <button id="add" class="btn btn-primary">今日の体重を追加</button>
+          <span id="last-updated" class="small" style="margin-left:auto">—</span>
+        </div>
       </div>
+
+      <!-- グラフ -->
+      <div class="card" style="margin-bottom:10px">
+        <div class="chartbox"><canvas id="chart"></canvas></div>
+      </div>
+
+      <!-- 非表示ログ（DBレスポンスや内部ログを格納） -->
+      <pre id="log" class="log" aria-hidden="true"></pre>
     </div>
 
-    <!-- 📅 操作UI -->
-    <div class="card">
-      <div class="toolbar">
-        <label>期間 from:</label>
-        <input id="from" type="datetime-local" />
-        <button id="load">読み込み（GET）</button>
-        <button id="add">今日のデータ追加（POST）</button>
-      </div>
-    </div>
-
-    <canvas id="chart"></canvas>
-    <pre id="log"></pre>
+    <div id="toast" class="toast"></div>
 
     <script>
-      const BASE_URL =
-        "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
+      // ====== 設定 ======
+      const BASE_URL = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
 
-      const $from = document.getElementById("from");
-      const $log = document.getElementById("log");
-      let chart;
+      // ====== 要素参照 ======
+      const $token = document.getElementById("idToken");
+      const $from  = document.getElementById("from");
+      const $log   = document.getElementById("log");
+      const $toast = document.getElementById("toast");
 
-      function fmtLocal(iso) {
-        const d = new Date(iso);
-        if (isNaN(d)) return iso;
-        const pad = (n) => String(n).padStart(2, "0");
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-          d.getDate()
-        )} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      // ====== トースト & ローディング ======
+      function toast(msg, type="ok", ms=2600){
+        $toast.className = `toast ${type}`;
+        $toast.textContent = String(msg);
+        $toast.style.display = 'block';
+        clearTimeout($toast._t);
+        $toast._t = setTimeout(()=> $toast.style.display='none', ms);
+      }
+      function setBusy(b, ids=["load","add"]){
+        ids.forEach(id=>{
+          const el=document.getElementById(id);
+          el.disabled = b;
+          el.style.opacity = b ? 0.6 : 1;
+          el.style.cursor  = b ? "wait" : "pointer";
+        });
       }
 
-      function log(msg) {
-        $log.textContent = msg;
-      }
-
-      // 🎨 Chart.js 初期化
-      const ctx = document.getElementById("chart");
-      chart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            {
-              label: "体重 (kg)",
-              data: [],
-              borderColor: "#60a5fa",
-              backgroundColor: "rgba(96,165,250,0.2)",
-              tension: 0.3,
-              yAxisID: "y1",
-            },
-            {
-              label: "体脂肪率 (%)",
-              data: [],
-              borderColor: "#f472b6",
-              borderDash: [5, 4],
-              tension: 0.3,
-              yAxisID: "y2",
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { title: { display: true, text: "日時 (ローカル)" } },
-            y1: {
-              type: "linear",
-              position: "left",
-              title: { display: true, text: "体重 (kg)" },
-              suggestedMin: 40,
-              suggestedMax: 90,
-            },
-            y2: {
-              type: "linear",
-              position: "right",
-              title: { display: true, text: "体脂肪率 (%)" },
-              suggestedMin: 10,
-              suggestedMax: 40,
-              grid: { drawOnChartArea: false },
-            },
-          },
-        },
-      });
-
-      // 📦 LocalStorage 状況更新
-      (function initTokenUI() {
-        const has = !!localStorage.getItem("idToken");
-        document.getElementById("tokenStatus").textContent = has
-          ? "✅ トークン保存済み"
-          : "❌ トークン未保存";
-        document.getElementById("paste-token").style.display = has
-          ? "none"
-          : "flex";
+      // ====== LocalStorage 表示 & 貼り付けUI ======
+      (function initTokenUI(){
+        const t = localStorage.getItem("idToken");
+        if (t) $token.value = t;
+        if (!t) document.getElementById('paste-token').style.display='flex';
       })();
 
-      document.getElementById("showPaste").onclick = () => {
-        document.getElementById("paste-token").style.display = "flex";
-      };
-
-      document.getElementById("doSavePaste").onclick = () => {
-        const t = document.getElementById("token-input").value.trim();
-        if (!t) return alert("IdToken を入力してください");
+      document.getElementById("saveToken").onclick = () => {
+        const t = $token.value.trim();
+        if (!t) return toast("IdToken を入力してください", "err");
         localStorage.setItem("idToken", t);
-        alert("保存しました");
-        document.getElementById("tokenStatus").textContent = "✅ トークン保存済み";
-        document.getElementById("paste-token").style.display = "none";
+        toast("保存しました");
       };
-
       document.getElementById("clearToken").onclick = () => {
         localStorage.removeItem("idToken");
-        alert("消去しました");
-        document.getElementById("tokenStatus").textContent = "❌ トークン未保存";
-        document.getElementById("paste-token").style.display = "flex";
+        $token.value = "";
+        toast("消去しました");
+        location.reload();
       };
 
-      // 🧮 データ取得
-      async function fetchAndDraw() {
-        try {
-          const fromVal = $from.value;
-          const fromISO = fromVal
-            ? new Date(fromVal).toISOString()
-            : "1970-01-01T00:00:00Z";
-          const url = `${BASE_URL}/weights?from=${encodeURIComponent(fromISO)}`;
-          const res = await fetch(url, { headers: getAuthHeader() });
-          const text = await res.text();
-          if (!res.ok) throw new Error(`GET 失敗: ${res.status} ${text}`);
-          const json = JSON.parse(text);
-          const items = (json.items || []).sort((a, b) =>
-            a.loggedAt.localeCompare(b.loggedAt)
-          );
+      // ====== Chart.js 初期化 ======
+      let chart;
 
-          chart.data.labels = items.map((x) => fmtLocal(x.loggedAt));
-          chart.data.datasets[0].data = items.map((x) => Number(x.weightKg));
-          chart.data.datasets[1].data = items.map((x) =>
-            x.bodyFat !== undefined && x.bodyFat !== null
-              ? Number(x.bodyFat)
-              : null
-          );
-          chart.update();
+      function initChart(){
+        const ctx = document.getElementById("chart").getContext('2d');
 
-          log(
-            `GET OK (${items.length}件)\n` +
-              JSON.stringify(items.slice(-5), null, 2)
-          );
-        } catch (e) {
-          console.error(e);
-          alert(e.message || e);
-          log(e.message || e);
-        }
-      }
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        const grid   = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
 
-      // ➕ データ追加
-      async function addWeight() {
-        try {
-          const input = prompt("今日の体重(kg)を入力:", "62.8");
-          if (input == null) return;
-          const weight = Number(input);
-          if (!Number.isFinite(weight)) return alert("数値を入力してください");
-
-          const fatInput = prompt("体脂肪率(%)を入力（任意）:", "20.5");
-          const bodyFat = fatInput ? Number(fatInput) : null;
-
-          const res = await fetch(`${BASE_URL}/weights`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...getAuthHeader(),
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [{
+              label: "体重 (kg)",
+              data: [],
+              tension: 0.2,
+              borderWidth: 3,
+              pointRadius: 4,              // ★ 点のマーカー
+              pointHoverRadius: 6,
+              borderColor: accent,
+              backgroundColor: "rgba(47,124,246,0.10)", // 薄い塗り
+              fill: true,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 250 },
+            interaction: { mode: "nearest", intersect: false },
+            plugins: {
+              legend: {
+                labels: { color: "var(--muted)" }
+              },
+              tooltip: {
+                backgroundColor: "#ffffff",
+                borderColor: "#d7dfec",
+                borderWidth: 1,
+                titleColor: "#0c1b36", bodyColor: "#334568",
+                callbacks: {
+                  label: (ctx)=> ` ${ctx.parsed.y.toFixed(1)} kg`,
+                  title: (items)=> items.map(it=> it.label)
+                }
+              },
+              // ★ 各点のすぐ横に値を表示（見やすさ向上）
+              datalabels: {
+                color: "#0c1b36",
+                align: 'right',      // 点の右側
+                anchor: 'end',
+                offset: 6,
+                clip: false,
+                formatter: (v)=> `${Number(v).toFixed(1)} kg`,
+                font: { size: 12, weight: '600' },
+                display: (ctx)=>{
+                  const n = ctx.chart.data.datasets[0].data.length;
+                  // 多数データ時の重なり軽減（必要に応じて調整）
+                  if(n>40) return ctx.dataIndex%2===0;
+                  return true;
+                }
+              }
             },
-            body: JSON.stringify({ weightKg: weight, bodyFat }),
-          });
-
-          const text = await res.text();
-          if (!res.ok) throw new Error(`POST 失敗: ${res.status} ${text}`);
-          alert("保存しました！");
-          log(`POST OK\n${text}`);
-          await fetchAndDraw();
-        } catch (e) {
-          console.error(e);
-          alert(e.message || e);
-          log(e.message || e);
-        }
+            scales: {
+              x: {
+                grid: { color: grid },
+                ticks: { color: "var(--muted)" },
+                title: { display: true, text: "日時 (ローカル)", color: "var(--muted)" },
+              },
+              y: {
+                grid: { color: grid },
+                ticks: { color: "var(--muted)" },
+                suggestedMin: 40, suggestedMax: 90,
+                title: { display: true, text: "kg", color: "var(--muted)" },
+              },
+            },
+          },
+          plugins: [ChartDataLabels]
+        });
       }
 
-      document.getElementById("load").onclick = fetchAndDraw;
-      document.getElementById("add").onclick = addWeight;
+      // ====== ユーティリティ ======
+      const pad = (n) => String(n).padStart(2,"0");
+      function fmtLocal(iso){
+        const d=new Date(iso); if(isNaN(d)) return iso;
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+      function log(msg){ $log.textContent=String(msg); } // ★ 非表示のまま内部保存（ユーザには見えない）
+
+      // 初期 from（直近1か月）
+      (function setDefaultFrom(){
+        if ($from?.value) return;
+        const d=new Date(); d.setMonth(d.getMonth()-1);
+        const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+        document.getElementById("from").value=local;
+      })();
+
+      // ====== データ取得 → グラフ描画 ======
+      async function fetchAndDraw(){
+        try{
+          setBusy(true);
+          const fromVal=document.getElementById("from").value;
+          const fromISO=fromVal? new Date(fromVal).toISOString() : "1970-01-01T00:00:00Z";
+          const url=`${BASE_URL}/weights?from=${encodeURIComponent(fromISO)}`;
+
+          const res=await fetch(url,{ headers: window.getAuthHeader() });
+          const text=await res.text();
+          if(!res.ok) throw new Error(`GET 失敗: ${res.status} ${text}`);
+
+          const json=JSON.parse(text);
+          const items=(json.items||[]).slice().sort((a,b)=> a.loggedAt.localeCompare(b.loggedAt));
+
+          // ラベルはローカル表記、値は数値化
+          chart.data.labels=items.map(x=> fmtLocal(x.loggedAt));
+          chart.data.datasets[0].data=items.map(x=> Number(x.weightKg));
+          chart.update('none'); // レイアウトの揺れを抑制
+
+          // 内部ログへ（ユーザには非表示）
+          if(items.length===0){
+            log("データはありません");
+            toast("データはありません","ok");
+          }else{
+            log(`GET OK (${items.length}件)\n`+JSON.stringify(items.slice(-10),null,2));
+            toast("グラフを更新しました");
+          }
+          document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
+        }catch(e){
+          console.error(e); log(e.message||e); toast(e.message||e,"err");
+        }finally{ setBusy(false); }
+      }
+
+      // ====== 体重を1件追加（POST） ======
+      async function addWeight(){
+        try{
+          setBusy(true,["add"]);
+          const input=prompt("今日の体重(kg)を入力:", "62.8");
+          if(input==null) return;
+          const weight=Number(input);
+          if(!Number.isFinite(weight)) return toast("数値を入力してください","err");
+
+          const res=await fetch(`${BASE_URL}/weights`,{
+            method:"POST",
+            headers:{ "Content-Type":"application/json", ...window.getAuthHeader() },
+            body:JSON.stringify({ weightKg:weight }),
+          });
+          const text=await res.text();
+          if(!res.ok) throw new Error(`POST 失敗: ${res.status} ${text}`);
+          log(`POST OK\n${text}`); toast("追加しました");
+          await fetchAndDraw();
+        }catch(e){
+          console.error(e); log(e.message||e); toast(e.message||e,"err");
+        }finally{ setBusy(false,["add"]); }
+      }
+
+      // ====== 初期化 ======
+      initChart();
+
+      document.getElementById("load").addEventListener("click", fetchAndDraw);
+      document.getElementById("add").addEventListener("click", addWeight);
+
+      // 初期表示
+      fetchAndDraw();
     </script>
   </body>
 </html>
