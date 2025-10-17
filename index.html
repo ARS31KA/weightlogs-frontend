@@ -205,12 +205,18 @@
               fill: false,
               datalabels: {
                 color: fatCol,
-                align: 'left', anchor: 'end', offset: 6, clip: false,
+                align: 'right',          // ← 体重と同じく右側に表示
+                anchor: 'end',
+                offset: 6,
+                clip: false,
                 formatter: (v)=> `${Number(v).toFixed(1)} %`,
                 font: { size: 12, weight: '700' },
                 display: (ctx)=>{
-                  const n = ctx.dataset.data.length;
-                  return ctx.dataIndex === n-1; // ★最新のみ表示して視認性UP
+                  // ★ 各点に表示（多すぎる場合は間引き）。最新は必ず表示。
+                  const n = ctx.chart.data.datasets[1].data.length;
+                  if (ctx.dataIndex === n-1) return true;      // 最新は必ず表示
+                  if (n > 40) return ctx.dataIndex % 2 === 0;  // 40点超は1つ置き
+                  return true;                                  // それ以外は全表示
                 }
               }
             }
@@ -358,5 +364,3 @@
     </script>
   </body>
 </html>
-```
-
