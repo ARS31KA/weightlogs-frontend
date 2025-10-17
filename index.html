@@ -69,7 +69,7 @@
       }
       input[type="datetime-local"]{min-width:240px}
       .btn{
-        border:1px solid var(--line); background:#f8fbff; color:var(--text);
+        border:1px solid var(--line); background:#f8fbff; color:#0c1b36;
         padding:10px 14px; border-radius:12px; cursor:pointer;
         transition:.15s transform,.15s background,.15s border-color,.15s filter;
       }
@@ -84,7 +84,6 @@
       .toast{position:fixed; right:20px; bottom:20px; z-index:9999; background:#fff;
         border:1px solid var(--line); color:var(--text); padding:12px 14px; border-radius:12px;
         box-shadow:0 6px 18px rgba(17,32,64,.12); display:none; max-width:380px}
-      /* 内部ログは非表示 */
       #log{display:none}
     </style>
   </head>
@@ -95,7 +94,6 @@
         <div><h1><span class="brand-accent">FitSnap</span></h1></div>
       </header>
 
-      <!-- 操作カード（トークンUIなし／方式B） -->
       <div class="card" style="margin-bottom:14px">
         <div class="toolbar">
           <div style="display:flex;gap:8px;align-items:center;">
@@ -108,7 +106,6 @@
         </div>
       </div>
 
-      <!-- グラフ -->
       <div class="card" style="margin-bottom:10px">
         <div class="chartbox"><canvas id="chart"></canvas></div>
       </div>
@@ -126,6 +123,9 @@
       const $from  = document.getElementById("from");
       const $log   = document.getElementById("log");
       const $toast = document.getElementById("toast");
+
+      // ====== 状態（直近の items を保持して削除に使う） ======
+      let lastItems = []; // [{loggedAt, weightKg, note}, ...]
 
       // ====== ユーティリティ ======
       const pad = (n)=> String(n).padStart(2,"0");
@@ -186,7 +186,7 @@
                 font: { size: 12, weight: '600' },
                 display: (ctx)=>{
                   const n = ctx.chart.data.datasets[0].data.length;
-                  if (ctx.dataIndex === n-1) return true;         // ★最新は必ず表示
+                  if (ctx.dataIndex === n-1) return true;
                   if(n>40) return ctx.dataIndex%2===0;
                   return true;
                 }
@@ -197,26 +197,25 @@
               yAxisID: 'yFat',
               data: [],
               tension: 0.25,
-              borderWidth: 4,            // ★太め
-              pointRadius: 5,            // ★丸マーカー大きめ
+              borderWidth: 4,
+              pointRadius: 5,
               pointHoverRadius: 7,
               borderColor: fatCol,
               backgroundColor: "rgba(245,92,166,0.15)",
               fill: false,
               datalabels: {
                 color: fatCol,
-                align: 'right',          // ← 体重と同じく右側に表示
+                align: 'right',
                 anchor: 'end',
                 offset: 6,
                 clip: false,
                 formatter: (v)=> `${Number(v).toFixed(1)} %`,
                 font: { size: 12, weight: '700' },
                 display: (ctx)=>{
-                  // ★ 各点に表示（多すぎる場合は間引き）。最新は必ず表示。
                   const n = ctx.chart.data.datasets[1].data.length;
-                  if (ctx.dataIndex === n-1) return true;      // 最新は必ず表示
-                  if (n > 40) return ctx.dataIndex % 2 === 0;  // 40点超は1つ置き
-                  return true;                                  // それ以外は全表示
+                  if (ctx.dataIndex === n-1) return true;
+                  if (n > 40) return ctx.dataIndex % 2 === 0;
+                  return true;
                 }
               }
             }
@@ -262,9 +261,41 @@
           },
           plugins: [ChartDataLabels]
         });
+
+        // === ダブルクリックで削除 ===
+        const canvas = ctx.canvas;
+        canvas.addEventListener('dblclick', async (evt)=>{
+          try{
+            // クリック点に最も近い要素（点）を取得（交差必須）
+            const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+            if (!points || points.length === 0) return;
+
+            const { datasetIndex, index } = points[0];
+
+            // index は labels & lastItems と同じ並び（fetchAndDraw で sort 済み）
+            const target = lastItems[index];
+            if (!target || !target.loggedAt) return;
+
+            const dateStr = fmtLocal(target.loggedAt);
+            const ok = confirm(`このデータを削除しますか？\n日時: ${dateStr}\n体重: ${target.weightKg} kg`);
+            if (!ok) return;
+
+            // API 呼び出し（DELETE /weights?loggedAt=...）
+            const url = `${BASE_URL}/weights?loggedAt=${encodeURIComponent(target.loggedAt)}`;
+            const res = await fetch(url, { method: 'DELETE', headers: window.getAuthHeader() });
+            const text = await res.text();
+            if (!res.ok) throw new Error(`DELETE 失敗: ${res.status} ${text}`);
+
+            toast("削除しました");
+            await fetchAndDraw(); // 再取得して両データセットを更新
+          }catch(e){
+            console.error(e);
+            toast(e.message || e, "err");
+          }
+        });
       }
 
-      // ====== 年齢計算（誕生日を迎えたら自動加算） ======
+      // ====== 年齢計算 ======
       function calcAgeFromBirthDate(yyyyMmDd){
         if(!/^\d{4}-\d{2}-\d{2}$/.test(yyyyMmDd||"")) return null;
         const [y,m,d]=yyyyMmDd.split('-').map(Number);
@@ -274,7 +305,7 @@
         return age;
       }
 
-      // ====== プロフィール取得（身長・性別・誕生日） ======
+      // ====== プロフィール取得 ======
       let profile = null; // { heightCm, birthDate, gender }
       async function fetchProfile(){
         const res=await fetch(`${BASE_URL}/profile`,{ headers: window.getAuthHeader() });
@@ -289,7 +320,6 @@
       async function fetchAndDraw(){
         try{
           setBusy(true);
-          // プロフィール必須
           if(!profile){ await fetchProfile(); }
 
           const fromVal=$from.value;
@@ -300,18 +330,30 @@
           const text=await res.text();
           if(!res.ok) throw new Error(`GET 失敗: ${res.status} ${text}`);
           const json=JSON.parse(text);
-          const items=(json.items||[]).slice().sort((a,b)=> a.loggedAt.localeCompare(b.loggedAt));
 
-          chart.data.labels = items.map(x=> fmtLocal(x.loggedAt));
-          chart.data.datasets[0].data = items.map(x=> Number(x.weightKg));
+          // 並びを確定し、lastItems に保持（削除時に loggedAt を使う）
+          lastItems = (json.items||[]).slice().sort((a,b)=> a.loggedAt.localeCompare(b.loggedAt));
 
-          // 体脂肪率を計算（1.20*BMI + 0.23*年齢 − 10.8*性別 − 5.4）
+          chart.data.labels = lastItems.map(x=> fmtLocal(x.loggedAt));
+          chart.data.datasets[0].data = lastItems.map(x=> Number(x.weightKg));
+
+          // 体脂肪率を計算
           let fats = [];
           if(profile && Number(profile.heightCm)>0 && profile.gender){
             const h = Number(profile.heightCm)/100;
-            const age = calcAgeFromBirthDate(profile.birthDate) ?? 30;
+            const age = (function(){
+              const a = profile.birthDate ? (()=>{
+                const t=new Date();
+                const [y,m,d]=profile.birthDate.split('-').map(Number);
+                let A = t.getFullYear()-y;
+                const passed=(t.getMonth()+1>m)||((t.getMonth()+1===m)&&(t.getDate()>=d));
+                if(!passed) A--;
+                return A;
+              })() : null;
+              return a ?? 30;
+            })();
             const sex = (String(profile.gender).toLowerCase()==='male') ? 1 : 0;
-            fats = items.map(x=>{
+            fats = lastItems.map(x=>{
               const w = Number(x.weightKg);
               const bmi = w/(h*h);
               return 1.20*bmi + 0.23*age - 10.8*sex - 5.4;
@@ -320,10 +362,10 @@
           chart.data.datasets[1].data = fats;
           chart.update('none');
 
-          if(items.length===0){
+          if(lastItems.length===0){
             log("データはありません"); toast("データはありません","ok");
           }else{
-            log(`GET OK (${items.length}件)\n`+JSON.stringify(items.slice(-10),null,2));
+            log(`GET OK (${lastItems.length}件)\n`+JSON.stringify(lastItems.slice(-10),null,2));
             toast("グラフを更新しました");
           }
           document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
@@ -359,7 +401,6 @@
       initChart();
       document.getElementById("load").addEventListener("click", fetchAndDraw);
       document.getElementById("add").addEventListener("click", addWeight);
-      // 初期表示
       (async ()=>{ try{ await fetchProfile(); await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();
     </script>
   </body>
