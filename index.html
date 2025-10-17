@@ -31,19 +31,10 @@
 
     <style>
       :root{
-        /* 明るい固定テーマ */
-        --bg0:#f4f7fb;
-        --bg1:#eaf0ff;
-        --card:#ffffff;
-        --text:#0c1b36;
-        --muted:#5e6b86;
-        --line:#d6deee;
-        --accent:#2f7cf6;     /* ライン＆強調 */
-        --accent2:#18c3a1;    /* 補助アクセント（ボタンのグラデ） */
-        --grid:#c9d6ee;       /* グリッド線 */
-        --chip:#eff4ff;
+        --bg0:#f4f7fb; --bg1:#eaf0ff; --card:#ffffff; --text:#0c1b36;
+        --muted:#5e6b86; --line:#d6deee; --accent:#2f7cf6; --accent2:#18c3a1;
+        --grid:#c9d6ee; --chip:#eff4ff;
       }
-
       *{box-sizing:border-box}
       html,body{height:100%}
       body{
@@ -54,120 +45,70 @@
         color:var(--text);
         font:16px/1.7 system-ui, Segoe UI, Helvetica, Arial;
       }
-
       .container{max-width:1080px;margin:0 auto}
-
-      /* ヘッダー */
-      header.apphead{
-        display:flex; align-items:center; gap:14px; margin-bottom:16px;
-      }
+      header.apphead{display:flex; align-items:center; gap:14px; margin-bottom:16px;}
       .logo{
         width:42px; height:42px; border-radius:12px;
         background: linear-gradient(135deg, var(--accent), var(--accent2));
         box-shadow:0 8px 18px rgba(47,124,246,.25);
         display:grid; place-items:center; color:#fff; font-weight:800;
       }
-      /* FitSnap のおしゃれ文字（グラデ文字） */
       .brand {
-        font-weight: 900;
-        font-size: 26px;
-        letter-spacing: .3px;
+        font-weight: 900; font-size: 26px; letter-spacing: .3px;
         background: linear-gradient(90deg, #2f7cf6 0%, #18c3a1 100%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
+        -webkit-background-clip: text; background-clip: text; color: transparent;
       }
-      h1{ margin:0; font-size:26px; letter-spacing:.2px; font-weight:800; color: var(--text); }
-      .subtitle{ display:none } /* 指定文を削除するため非表示 */
-
       .card{
-        background:var(--card);
-        border:1px solid var(--line);
-        border-radius:16px;
-        box-shadow:0 8px 20px rgba(17,32,64,.06);
-        padding:16px;
+        background:var(--card); border:1px solid var(--line);
+        border-radius:16px; box-shadow:0 8px 20px rgba(17,32,64,.06); padding:16px;
       }
-
       .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-      .field{display:flex; gap:8px; align-items:center; flex:1 1 auto}
+      .field{display:flex; gap:8px; align-items:center; flex:0 1 auto}
       label{color:var(--muted); font-size:13px}
       input{
         background:#f8fbff; color:var(--text);
-        border:1px solid var(--line);
-        border-radius:12px; padding:10px 12px;
-        outline:none;
+        border:1px solid var(--line); border-radius:12px; padding:10px 12px; outline:none;
       }
       input::placeholder{color:#9aa8bf}
       input[type="datetime-local"]{min-width:240px}
-
       .btn{
-        border:1px solid var(--line);
-        background:#f8fbff; color:var(--text);
+        border:1px solid var(--line); background:#f8fbff; color:var(--text);
         padding:10px 14px; border-radius:12px; cursor:pointer;
         transition:.15s transform,.15s background,.15s border-color,.15s filter;
       }
       .btn:hover{transform:translateY(-1px); border-color:#b7c6de; background:#ffffff}
-      .btn:disabled{opacity:.6; cursor:not-allowed}
-      .btn-primary{
-        background: linear-gradient(90deg, var(--accent), var(--accent2));
-        border-color:transparent; color:#fff;
-      }
+      .btn-primary{background: linear-gradient(90deg, var(--accent), var(--accent2)); border-color:transparent; color:#fff;}
       .btn-primary:hover{filter:brightness(1.06)}
-
-      /* グラフ領域 */
-      .chartbox{
-        position: relative;
-        width: 100%;
-        height: 480px;
-        border:1px dashed var(--line);
-        border-radius:12px;
-        background: var(--chip);
-      }
-      .chartbox canvas{
-        position: absolute;
-        inset: 0;
-        width: 100% !important;
-        height: 100% !important;
-        display: block;
-      }
-
-      /* 非表示ログ（内部保存用） */
-      .log{
-        display:none !important;
-        white-space:pre-wrap; background:#f8fbff; border:1px solid var(--line);
-        color:#334568; border-radius:12px; padding:10px; margin-top:12px;
-        max-height:180px; overflow:auto;
-      }
-
+      .chartbox{position: relative; width: 100%; height: 480px; border:1px dashed var(--line); border-radius:12px; background: var(--chip);}
+      .chartbox canvas{position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block;}
+      .log{display:none !important; white-space:pre-wrap; background:#f8fbff; border:1px solid var(--line);
+           color:#334568; border-radius:12px; padding:10px; margin-top:12px; max-height:180px; overflow:auto;}
       .small{font-size:13px; color:var(--muted)}
-      .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
-
-      .toast{
-        position:fixed; right:20px; bottom:20px; z-index:9999;
-        background:#ffffff;
-        border:1px solid var(--line); color:var(--text);
-        padding:12px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(17,32,64,.12);
-        display:none; max-width:380px
-      }
+      .toast{position:fixed; right:20px; bottom:20px; z-index:9999; background:#ffffff; border:1px solid var(--line);
+             color:var(--text); padding:12px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(17,32,64,.12); display:none; max-width:380px}
     </style>
   </head>
   <body>
     <div class="container">
       <header class="apphead">
         <div class="logo">F</div>
-        <div>
-          <div class="brand">FitSnap</div>
-          <!-- 指定のサブタイトルは削除 -->
-        </div>
+        <div class="brand">FitSnap</div>
       </header>
 
-      <!-- 操作カード（IdToken欄は削除済み） -->
+      <!-- 操作カード -->
       <div class="card" style="margin-bottom:14px">
         <div class="toolbar">
-          <div class="field" style="flex:0 0 auto">
+          <div class="field">
             <label>期間 from</label>
             <input id="from" type="datetime-local">
           </div>
+          <!-- 身長(cm) の入力と保存（体脂肪率計算に使用） -->
+          <div class="field">
+            <label>身長</label>
+            <input id="heightCm" type="number" placeholder="170（cm）" style="width:140px">
+            <button id="saveHeight" class="btn">身長を保存</button>
+          </div>
+
           <button id="load" class="btn">グラフを表示</button>
           <button id="add" class="btn btn-primary">今日の体重を追加</button>
           <span id="last-updated" class="small" style="margin-left:auto">—</span>
@@ -191,109 +132,23 @@
 
       // ====== 要素参照 ======
       const $from  = document.getElementById("from");
-      const $log   = document.getElementById("log");
+      const $height = document.getElementById("heightCm");
       const $toast = document.getElementById("toast");
+      const $log   = document.getElementById("log");
       let chart;
 
-      // ====== トースト & ローディング ======
+      // ====== ユーティリティ ======
       function toast(msg, type="ok", ms=2600){
-        $toast.className = `toast ${type}`;
-        $toast.textContent = String(msg);
-        $toast.style.display = 'block';
-        clearTimeout($toast._t);
+        $toast.className = `toast ${type}`; $toast.textContent = String(msg);
+        $toast.style.display = 'block'; clearTimeout($toast._t);
         $toast._t = setTimeout(()=> $toast.style.display='none', ms);
       }
       function setBusy(b, ids=["load","add"]){
         ids.forEach(id=>{
-          const el=document.getElementById(id);
-          if(!el) return;
-          el.disabled = b;
-          el.style.opacity = b ? 0.6 : 1;
-          el.style.cursor  = b ? "wait" : "pointer";
+          const el=document.getElementById(id); if(!el) return;
+          el.disabled=b; el.style.opacity=b?0.6:1; el.style.cursor=b?"wait":"pointer";
         });
       }
-
-      // ====== Chart.js 初期化 ======
-      function initChart(){
-        const ctx = document.getElementById("chart").getContext('2d');
-        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-        const grid   = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
-
-        chart = new Chart(ctx, {
-          type: "line",
-          data: {
-            labels: [],
-            datasets: [{
-              label: "体重 (kg)",
-              data: [],
-              tension: 0.2,
-              borderWidth: 3,
-              pointRadius: 4,
-              pointHoverRadius: 6,
-              borderColor: accent,
-              backgroundColor: "rgba(47,124,246,0.10)",
-              fill: true,
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 250 },
-            interaction: { mode: "nearest", intersect: false },
-            plugins: {
-              legend: {
-                labels: { color: "var(--muted)" }
-              },
-              tooltip: {
-                backgroundColor: "#ffffff",
-                borderColor: "#d7dfec",
-                borderWidth: 1,
-                titleColor: "#0c1b36", bodyColor: "#334568",
-                callbacks: {
-                  label: (ctx)=> ` ${ctx.parsed.y.toFixed(1)} kg`,
-                  title: (items)=> items.map(it=> it.label)
-                }
-              },
-              // ★ 各点の値表示（大量データ時は間引きするが、最新点は必ず表示）
-              datalabels: {
-                color: "#0c1b36",
-                align: 'right',
-                anchor: 'end',
-                offset: 6,
-                clip: false,
-                formatter: (v)=> `${Number(v).toFixed(1)} kg`,
-                font: { size: 12, weight: '600' },
-                display: (ctx)=>{
-                  const data = ctx.chart.data.datasets[0].data || [];
-                  const n = data.length;
-                  if (n === 0) return false;
-                  // 常に最新点（末尾）は表示
-                  if (ctx.dataIndex === n - 1) return true;
-                  // それ以外は多数データ時のみ間引き
-                  if (n > 40) return ctx.dataIndex % 2 === 0;
-                  return true;
-                }
-              }
-            },
-            scales: {
-              x: {
-                grid: { color: grid },
-                ticks: { color: "var(--muted)" },
-                title: { display: true, text: "日時 (ローカル)", color: "var(--muted)" },
-              },
-              y: {
-                grid: { color: grid },
-                ticks: { color: "var(--muted)" },
-                suggestedMin: 40, suggestedMax: 90,
-                title: { display: true, text: "kg", color: "var(--muted)" },
-              },
-            },
-          },
-          plugins: [ChartDataLabels]
-        });
-      }
-
-      // ====== ユーティリティ ======
       const pad = (n) => String(n).padStart(2,"0");
       function fmtLocal(iso){
         const d=new Date(iso); if(isNaN(d)) return iso;
@@ -301,19 +156,110 @@
       }
       function log(msg){ $log.textContent=String(msg); }
 
+      // 身長の保存・復元
+      (function restoreHeight(){
+        const v = localStorage.getItem('heightCm');
+        if(v) $height.value = v;
+      })();
+      document.getElementById("saveHeight").onclick = () => {
+        const v = ($height.value||"").trim();
+        if(!v || Number(v)<=0) return toast("身長(cm)を正しく入力してください","err");
+        localStorage.setItem('heightCm', v);
+        toast("身長を保存しました");
+      };
+      function getHeightM(){
+        const cm = Number(localStorage.getItem('heightCm') || $height.value || 0);
+        return Number.isFinite(cm) && cm>0 ? cm/100 : null;
+      }
+
       // 初期 from（直近1か月）
       (function setDefaultFrom(){
         if ($from?.value) return;
         const d=new Date(); d.setMonth(d.getMonth()-1);
         const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-        document.getElementById("from").value=local;
+        $from.value=local;
       })();
+
+      // ====== Chart.js 初期化（体重＋体脂肪率） ======
+      function initChart(){
+        const ctx = document.getElementById("chart").getContext('2d');
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        const grid   = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
+
+        chart = new Chart(ctx, {
+          type: "line",
+          data: { labels: [], datasets: [
+            { // 体重
+              label: "体重 (kg)", data: [], tension: 0.2, borderWidth: 3,
+              pointRadius: 4, pointHoverRadius: 6, borderColor: accent,
+              backgroundColor: "rgba(47,124,246,0.10)", fill: true, yAxisID: "y1",
+              datalabels: {
+                color: "#0c1b36", align: 'right', anchor: 'end', offset: 6, clip: false,
+                formatter: (v)=> `${Number(v).toFixed(1)} kg`,
+                font: { size: 12, weight: '600' },
+                display: (ctx)=>{
+                  const data = ctx.chart.data.datasets[0].data || []; const n = data.length;
+                  if (n === 0) return false;
+                  if (ctx.dataIndex === n - 1) return true; // 最新点は常に表示
+                  if (n > 40) return ctx.dataIndex % 2 === 0;
+                  return true;
+                }
+              }
+            },
+            { // 体脂肪率（%）
+              label: "体脂肪率 (%)", data: [], tension: 0.25, borderWidth: 2, pointRadius: 0,
+              borderColor: "#f472b6", borderDash: [6,4], fill: false, yAxisID: "y2"
+            }
+          ]},
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 250 },
+            interaction: { mode: "nearest", intersect: false },
+            plugins: {
+              legend: { labels: { color: "var(--muted)" } },
+              tooltip: {
+                backgroundColor: "#ffffff", borderColor: "#d7dfec", borderWidth: 1,
+                titleColor: "#0c1b36", bodyColor: "#334568",
+                callbacks: {
+                  label: (ctx)=>{
+                    const val = ctx.parsed.y;
+                    return ctx.dataset.label.includes("体脂肪率")
+                      ? ` ${val.toFixed(2)} %`
+                      : ` ${val.toFixed(1)} kg`;
+                  },
+                  title: (items)=> items.map(it=> it.label)
+                }
+              }
+            },
+            scales: {
+              x: { grid: { color: grid }, ticks: { color: "var(--muted)" },
+                   title: { display: true, text: "日時 (ローカル)", color: "var(--muted)" } },
+              y1:{ position:"left", grid:{ color: grid }, ticks:{ color:"var(--muted)" },
+                   suggestedMin:40, suggestedMax:90,
+                   title:{ display:true, text:"体重 (kg)", color:"var(--muted)" } },
+              y2:{ position:"right", grid:{ drawOnChartArea:false }, ticks:{ color:"var(--muted)" },
+                   suggestedMin:-20, suggestedMax:40,
+                   title:{ display:true, text:"体脂肪率 (%)", color:"var(--muted)" } }
+            }
+          },
+          plugins:[ChartDataLabels]
+        });
+      }
+
+      // ====== 体脂肪率を計算（ご指定式） ======
+      function calcBodyFatPercent(weightKg, heightM){
+        // 標準体重 = 身長(m) × 身長(m) × 22
+        // 体脂肪率 = (現在の体重 − 標準体重) ÷ 標準体重 × 10  ←ご指定どおり（×10）
+        if(!heightM) return null;
+        const std = heightM * heightM * 22;
+        return ((Number(weightKg) - std) / std) * 10;
+      }
 
       // ====== データ取得 → グラフ描画 ======
       async function fetchAndDraw(){
         try{
           setBusy(true);
-          const fromVal=document.getElementById("from").value;
+          const fromVal=$from.value;
           const fromISO=fromVal? new Date(fromVal).toISOString() : "1970-01-01T00:00:00Z";
           const url=`${BASE_URL}/weights?from=${encodeURIComponent(fromISO)}`;
 
@@ -324,16 +270,22 @@
           const json=JSON.parse(text);
           const items=(json.items||[]).slice().sort((a,b)=> a.loggedAt.localeCompare(b.loggedAt));
 
-          chart.data.labels=items.map(x=> fmtLocal(x.loggedAt));
-          chart.data.datasets[0].data=items.map(x=> Number(x.weightKg));
+          // 軸 & データ
+          chart.data.labels = items.map(x=> fmtLocal(x.loggedAt));
+          chart.data.datasets[0].data = items.map(x=> Number(x.weightKg));
+
+          // 体脂肪率（%）をフロント側で計算して重ねる
+          const hM = getHeightM();
+          chart.data.datasets[1].data = items.map(x=>{
+            const p = calcBodyFatPercent(x.weightKg, hM);
+            return (p===null || !Number.isFinite(p)) ? null : Number(p);
+          });
+
           chart.update('none');
 
-          if(items.length===0){
-            log("データはありません"); toast("データはありません","ok");
-          }else{
-            log(`GET OK (${items.length}件)\n`+JSON.stringify(items.slice(-10),null,2));
-            toast("グラフを更新しました");
-          }
+          if(items.length===0){ log("データはありません"); toast("データはありません","ok"); }
+          else { log(`GET OK (${items.length}件)\n`+JSON.stringify(items.slice(-10),null,2)); toast("グラフを更新しました"); }
+
           document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
         }catch(e){
           console.error(e); log(e.message||e); toast(e.message||e,"err");
