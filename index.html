@@ -1,3 +1,13 @@
+こちらが、**FitSnapの完全版 index.html（コピペ置き換えOK）**です。
+
+* URL `?id_token=...` で自動保存（Token Receiver）
+* **トークン入力UIは非表示**（方式B）
+* 体重（左Y軸・kg）＋ **体脂肪率（右Y軸・%・太め＆丸マーカー）** を重ね描画
+* **最新ポイントの数値ラベルは必ず表示**（体重・体脂肪率とも）
+
+> ※ `BASE_URL` だけ、あなたの API のものに合わせてあります（必要なら置き換え）。
+
+```html
 <!DOCTYPE html>
 <html lang="ja">
   <head>
@@ -5,7 +15,7 @@
     <title>FitSnap</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- BEGIN: Token Receiver -->
+    <!-- BEGIN: Token Receiver (place this at the very top) -->
     <script>
     (function(){
       const qs=new URLSearchParams(location.search);
@@ -13,11 +23,12 @@
       const tok=qs.get('id_token')||qs.get('token')||hs.get('id_token')||hs.get('token');
       if(tok){
         localStorage.setItem('idToken', tok);
-        try{history.replaceState({}, "", location.pathname);}catch(e){}
+        try{history.replaceState({}, "", location.pathname + location.search.replace(/(\?|&)id_token=[^&#]*/,'').replace(/(\?|&)token=[^&#]*/,'').replace(/\?$/,'') );}catch(e){}
+        try{history.replaceState({}, "", location.pathname + location.search);}catch(e){}
       }
       window.getAuthHeader=function(){
         const t=localStorage.getItem('idToken');
-        if(!t) throw new Error('IdToken が未入力です（A の認証後にURLで受け取ってください）');
+        if(!t) throw new Error('IdToken が未入力です（URL の ?id_token=... で渡してください）');
         return { Authorization:'Bearer '+t };
       };
     })();
@@ -32,77 +43,75 @@
       :root{
         --bg0:#f4f7fb; --bg1:#eaf0ff; --card:#ffffff; --text:#0c1b36;
         --muted:#5e6b86; --line:#d6deee; --accent:#2f7cf6; --accent2:#18c3a1;
-        --grid:#c9d6ee; --chip:#eff4ff;
+        --grid:#c9d6ee; --chip:#eff4ff; --fat:#f55ca6;
       }
       *{box-sizing:border-box}
+      html,body{height:100%}
       body{
         margin:0; padding:28px;
-        background:radial-gradient(1200px 600px at 20% -10%, var(--bg1) 0%, var(--bg0) 60%);
-        color:var(--text); font:16px/1.7 system-ui, Segoe UI, Helvetica, Arial;
+        background:
+          radial-gradient(1200px 600px at 20% -10%, var(--bg1) 0%, var(--bg0) 60%),
+          linear-gradient(180deg, var(--bg1), var(--bg0));
+        color:var(--text);
+        font:16px/1.7 system-ui, Segoe UI, Helvetica, Arial;
       }
       .container{max-width:1080px;margin:0 auto}
       header.apphead{display:flex; align-items:center; gap:14px; margin-bottom:16px;}
-      .logo{width:42px; height:42px; border-radius:12px;
-        background:linear-gradient(135deg,var(--accent),var(--accent2));
-        box-shadow:0 8px 18px rgba(47,124,246,.25);
-        display:grid; place-items:center; color:#fff; font-weight:800;}
-      .brand{font-weight:900; font-size:26px; letter-spacing:.3px;
-        background:linear-gradient(90deg,#2f7cf6 0%,#18c3a1 100%);
-        -webkit-background-clip:text; background-clip:text; color:transparent;}
-      .card{background:var(--card); border:1px solid var(--line);
-        border-radius:16px; box-shadow:0 8px 20px rgba(17,32,64,.06); padding:16px;}
-      .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-      .field{display:flex; gap:8px; align-items:center}
-      label{color:var(--muted); font-size:13px}
-      input,select{
-        background:#f8fbff; border:1px solid var(--line);
-        border-radius:12px; padding:8px 10px; outline:none; color:var(--text);
+      .logo{
+        width:48px; height:48px; border-radius:14px;
+        background: conic-gradient(from 210deg,var(--accent),#7f9cfb,var(--accent2));
+        box-shadow:0 10px 22px rgba(47,124,246,.25);
+        display:grid; place-items:center; color:#fff; font-weight:900;
+        letter-spacing:.5px; font-size:18px;
       }
-      .btn{border:1px solid var(--line); background:#f8fbff; color:var(--text);
+      h1{margin:0; font-size:28px; font-weight:900; letter-spacing:.3px}
+      .brand-accent{background:linear-gradient(90deg,var(--accent),var(--accent2));
+        -webkit-background-clip:text;background-clip:text;color:transparent}
+      .card{
+        background:var(--card); border:1px solid var(--line); border-radius:16px;
+        box-shadow:0 8px 20px rgba(17,32,64,.06); padding:16px;
+      }
+      .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+      label{color:var(--muted); font-size:13px}
+      input{
+        background:#f8fbff; color:var(--text);
+        border:1px solid var(--line); border-radius:12px; padding:10px 12px; outline:none;
+      }
+      input[type="datetime-local"]{min-width:240px}
+      .btn{
+        border:1px solid var(--line); background:#f8fbff; color:var(--text);
         padding:10px 14px; border-radius:12px; cursor:pointer;
-        transition:.15s transform,.15s background,.15s border-color,.15s filter;}
-      .btn:hover{transform:translateY(-1px); border-color:#b7c6de; background:#fff}
-      .btn-primary{background:linear-gradient(90deg,var(--accent),var(--accent2)); border-color:transparent; color:#fff;}
-      .chartbox{position:relative;width:100%;height:480px;border:1px dashed var(--line);
-        border-radius:12px;background:var(--chip);}
-      .chartbox canvas{position:absolute;inset:0;width:100%!important;height:100%!important;}
-      .small{font-size:13px;color:var(--muted)}
-      .toast{position:fixed;right:20px;bottom:20px;z-index:9999;background:#fff;
-        border:1px solid var(--line);color:var(--text);padding:12px 14px;
-        border-radius:12px;box-shadow:0 6px 18px rgba(17,32,64,.12);
-        display:none;max-width:380px}
+        transition:.15s transform,.15s background,.15s border-color,.15s filter;
+      }
+      .btn:hover{transform:translateY(-1px); border-color:#b7c6de; background:#ffffff}
+      .btn-primary{background: linear-gradient(90deg, var(--accent), var(--accent2));
+        border-color:transparent; color:#fff;}
+      .btn-primary:hover{filter:brightness(1.06)}
+      .chartbox{position:relative;width:100%;height:520px;border:1px dashed var(--line);
+        border-radius:12px;background:var(--chip)}
+      .chartbox canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
+      .small{font-size:13px; color:var(--muted)}
+      .toast{position:fixed; right:20px; bottom:20px; z-index:9999; background:#fff;
+        border:1px solid var(--line); color:var(--text); padding:12px 14px; border-radius:12px;
+        box-shadow:0 6px 18px rgba(17,32,64,.12); display:none; max-width:380px}
+      /* 内部ログは非表示 */
+      #log{display:none}
     </style>
   </head>
   <body>
     <div class="container">
       <header class="apphead">
-        <div class="logo">F</div>
-        <div class="brand">FitSnap</div>
+        <div class="logo">FS</div>
+        <div><h1><span class="brand-accent">FitSnap</span></h1></div>
       </header>
 
-      <!-- 操作カード -->
+      <!-- 操作カード（トークンUIなし／方式B） -->
       <div class="card" style="margin-bottom:14px">
         <div class="toolbar">
-          <div class="field">
+          <div style="display:flex;gap:8px;align-items:center;">
             <label>期間 from</label>
             <input id="from" type="datetime-local">
           </div>
-          <div class="field">
-            <label>身長</label>
-            <input id="heightCm" type="number" placeholder="170（cm）" style="width:100px">
-          </div>
-          <div class="field">
-            <label>年齢</label>
-            <input id="age" type="number" placeholder="20" style="width:80px">
-          </div>
-          <div class="field">
-            <label>性別</label>
-            <select id="gender" style="width:90px">
-              <option value="1">男性</option>
-              <option value="0">女性</option>
-            </select>
-          </div>
-          <button id="saveProfile" class="btn">保存</button>
           <button id="load" class="btn">グラフを表示</button>
           <button id="add" class="btn btn-primary">今日の体重を追加</button>
           <span id="last-updated" class="small" style="margin-left:auto">—</span>
@@ -110,147 +119,253 @@
       </div>
 
       <!-- グラフ -->
-      <div class="card">
+      <div class="card" style="margin-bottom:10px">
         <div class="chartbox"><canvas id="chart"></canvas></div>
       </div>
+
+      <pre id="log"></pre>
     </div>
+
     <div id="toast" class="toast"></div>
 
     <script>
-      const BASE_URL="https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
-      const $from=document.getElementById("from");
-      const $toast=document.getElementById("toast");
-      const $height=document.getElementById("heightCm");
-      const $age=document.getElementById("age");
-      const $gender=document.getElementById("gender");
-      let chart;
+      // ====== 設定 ======
+      const BASE_URL = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
 
-      function toast(msg,type="ok",ms=2600){
-        $toast.textContent=msg;$toast.style.display="block";
-        clearTimeout($toast._t);$toast._t=setTimeout(()=>{$toast.style.display="none"},ms);
-      }
-      function setBusy(b,ids=["load","add"]){ids.forEach(id=>{
-        const el=document.getElementById(id);if(!el)return;
-        el.disabled=b;el.style.opacity=b?0.6:1;el.style.cursor=b?"wait":"pointer";
-      });}
+      // ====== 要素 ======
+      const $from  = document.getElementById("from");
+      const $log   = document.getElementById("log");
+      const $toast = document.getElementById("toast");
 
-      (function restoreProfile(){
-        const h=localStorage.getItem("heightCm");if(h)$height.value=h;
-        const a=localStorage.getItem("age");if(a)$age.value=a;
-        const g=localStorage.getItem("gender");if(g!==null)$gender.value=g;
-      })();
-      document.getElementById("saveProfile").onclick=()=>{
-        if(!$height.value||!$age.value)return toast("身長と年齢を入力してください","err");
-        localStorage.setItem("heightCm",$height.value);
-        localStorage.setItem("age",$age.value);
-        localStorage.setItem("gender",$gender.value);
-        toast("プロフィールを保存しました");
-      };
-
-      const pad=n=>String(n).padStart(2,"0");
+      // ====== ユーティリティ ======
+      const pad = (n)=> String(n).padStart(2,"0");
       function fmtLocal(iso){
-        const d=new Date(iso);if(isNaN(d))return iso;
+        const d=new Date(iso); if(isNaN(d)) return iso;
         return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       }
+      function toast(msg, type="ok", ms=2600){
+        $toast.className = `toast ${type}`;
+        $toast.textContent = String(msg);
+        $toast.style.display = 'block';
+        clearTimeout($toast._t);
+        $toast._t = setTimeout(()=> $toast.style.display='none', ms);
+      }
+      function setBusy(b, ids=["load","add"]){
+        ids.forEach(id=>{
+          const el=document.getElementById(id);
+          el.disabled = b;
+          el.style.opacity = b ? 0.6 : 1;
+          el.style.cursor  = b ? "wait" : "pointer";
+        });
+      }
+      function log(msg){ $log.textContent=String(msg); }
 
-      (function initFrom(){
-        if($from.value)return;
-        const d=new Date();d.setMonth(d.getMonth()-1);
-        $from.value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+      // 直近1か月を既定
+      (function setDefaultFrom(){
+        const d=new Date(); d.setMonth(d.getMonth()-1);
+        const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+        $from.value=local;
       })();
 
-      // ---- Chart.js ----
+      // ====== Chart.js 初期化 ======
+      let chart;
       function initChart(){
-        const ctx=document.getElementById("chart").getContext("2d");
-        const accent=getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
-        const grid=getComputedStyle(document.documentElement).getPropertyValue("--grid").trim();
-        chart=new Chart(ctx,{
-          type:"line",
-          data:{labels:[],datasets:[
-            {label:"体重 (kg)",data:[],borderColor:accent,backgroundColor:"rgba(47,124,246,0.1)",
-             fill:true,tension:0.2,pointRadius:4,borderWidth:3,yAxisID:"y1"},
-            {label:"体脂肪率 (%)",data:[],borderColor:"#f472b6",
-             backgroundColor:"#f472b6", // ★変更箇所（丸マーカー色）
-             fill:false,yAxisID:"y2",tension:0.25,
-             pointRadius:5,             // ★変更箇所（丸マーカー）
-             pointHoverRadius:7,        // ★変更箇所（ホバー時拡大）
-             borderWidth:3,             // ★変更箇所（線を太く）
-             borderDash:[2,3]}          // ★変更箇所（やや短い点線に変更で見やすく）
+        const ctx = document.getElementById("chart").getContext('2d');
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        const grid   = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
+        const fatCol = getComputedStyle(document.documentElement).getPropertyValue('--fat').trim();
+
+        chart = new Chart(ctx, {
+          type: "line",
+          data: { labels: [], datasets: [
+            {
+              label: "体重 (kg)",
+              yAxisID: 'yWeight',
+              data: [],
+              tension: 0.2,
+              borderWidth: 3,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              borderColor: accent,
+              backgroundColor: "rgba(47,124,246,0.10)",
+              fill: true,
+              datalabels: {
+                color: "#0c1b36",
+                align: 'right', anchor: 'end', offset: 6, clip: false,
+                formatter: (v)=> `${Number(v).toFixed(1)} kg`,
+                font: { size: 12, weight: '600' },
+                display: (ctx)=>{
+                  const n = ctx.chart.data.datasets[0].data.length;
+                  if (ctx.dataIndex === n-1) return true;         // ★最新は必ず表示
+                  if(n>40) return ctx.dataIndex%2===0;
+                  return true;
+                }
+              }
+            },
+            {
+              label: "体脂肪率 (%)",
+              yAxisID: 'yFat',
+              data: [],
+              tension: 0.25,
+              borderWidth: 4,            // ★太め
+              pointRadius: 5,            // ★丸マーカー大きめ
+              pointHoverRadius: 7,
+              borderColor: fatCol,
+              backgroundColor: "rgba(245,92,166,0.15)",
+              fill: false,
+              datalabels: {
+                color: fatCol,
+                align: 'left', anchor: 'end', offset: 6, clip: false,
+                formatter: (v)=> `${Number(v).toFixed(1)} %`,
+                font: { size: 12, weight: '700' },
+                display: (ctx)=>{
+                  const n = ctx.dataset.data.length;
+                  return ctx.dataIndex === n-1; // ★最新のみ表示して視認性UP
+                }
+              }
+            }
           ]},
-          options:{
-            responsive:true,maintainAspectRatio:false,
-            plugins:{legend:{labels:{color:"var(--muted)"}},
-            tooltip:{callbacks:{
-              label:(ctx)=>ctx.dataset.label.includes("体脂肪率")
-                ? ` ${ctx.parsed.y.toFixed(2)} %`
-                : ` ${ctx.parsed.y.toFixed(1)} kg`
-            }}},
-            scales:{
-              x:{grid:{color:grid},ticks:{color:"var(--muted)"},
-                 title:{display:true,text:"日時 (ローカル)",color:"var(--muted)"}},
-              y1:{position:"left",ticks:{color:"var(--muted)"},
-                 title:{display:true,text:"体重 (kg)",color:"var(--muted)"},suggestedMin:40,suggestedMax:90},
-              y2:{position:"right",grid:{drawOnChartArea:false},ticks:{color:"var(--muted)"},
-                 title:{display:true,text:"体脂肪率 (%)",color:"var(--muted)"},suggestedMin:0,suggestedMax:40}
-            }}
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 250 },
+            interaction: { mode: "nearest", intersect: false },
+            plugins: {
+              legend: { labels: { color: "var(--muted)" } },
+              tooltip: {
+                backgroundColor: "#ffffff", borderColor: "#d7dfec", borderWidth: 1,
+                titleColor: "#0c1b36", bodyColor: "#334568",
+                callbacks: {
+                  label: (ctx)=>{
+                    const y = ctx.parsed.y;
+                    return ctx.dataset.yAxisID==='yFat' ? ` ${y.toFixed(1)} %` : ` ${y.toFixed(1)} kg`;
+                  },
+                  title: (items)=> items.map(it=> it.label)
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: grid }, ticks: { color: "var(--muted)" },
+                title: { display: true, text: "日時 (ローカル)", color: "var(--muted)" },
+              },
+              yWeight: {
+                position:'left',
+                grid: { color: grid }, ticks: { color: "var(--muted)" },
+                suggestedMin: 40, suggestedMax: 90,
+                title: { display: true, text: "kg", color: "var(--muted)" },
+              },
+              yFat: {
+                position:'right',
+                grid: { drawOnChartArea:false },
+                ticks: { color: "var(--muted)", callback:(v)=> `${v}%` },
+                suggestedMin: 5, suggestedMax: 40,
+                title: { display: true, text: "%", color: "var(--muted)" },
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
         });
       }
 
-      // ---- 計算式 ----
-      function calcBodyFat(weightKg,heightM,age,gender){
-        if(!heightM||!age)return null;
-        const bmi=weightKg/(heightM*heightM);
-        return 1.20*bmi + 0.23*age - 10.8*gender - 5.4;
+      // ====== 年齢計算（誕生日を迎えたら自動加算） ======
+      function calcAgeFromBirthDate(yyyyMmDd){
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(yyyyMmDd||"")) return null;
+        const [y,m,d]=yyyyMmDd.split('-').map(Number);
+        const t=new Date(); let age=t.getFullYear()-y;
+        const passed=(t.getMonth()+1>m)||((t.getMonth()+1===m)&&(t.getDate()>=d));
+        if(!passed) age--;
+        return age;
       }
 
+      // ====== プロフィール取得（身長・性別・誕生日） ======
+      let profile = null; // { heightCm, birthDate, gender }
+      async function fetchProfile(){
+        const res=await fetch(`${BASE_URL}/profile`,{ headers: window.getAuthHeader() });
+        const text=await res.text();
+        if(!res.ok) throw new Error(`GET /profile 失敗: ${res.status} ${text}`);
+        const json=JSON.parse(text);
+        profile = json.profile || null;
+        return profile;
+      }
+
+      // ====== データ取得 → グラフ描画 ======
       async function fetchAndDraw(){
         try{
           setBusy(true);
-          const fromISO=new Date($from.value).toISOString();
-          const url=`${BASE_URL}/weights?from=${encodeURIComponent(fromISO)}`;
-          const res=await fetch(url,{headers:window.getAuthHeader()});
-          const text=await res.text();if(!res.ok)throw new Error(`GET失敗:${res.status} ${text}`);
-          const json=JSON.parse(text);
-          const items=(json.items||[]).sort((a,b)=>a.loggedAt.localeCompare(b.loggedAt));
-          const hM=Number(localStorage.getItem("heightCm")||$height.value)/100;
-          const age=Number(localStorage.getItem("age")||$age.value);
-          const gender=Number(localStorage.getItem("gender")||$gender.value);
+          // プロフィール必須
+          if(!profile){ await fetchProfile(); }
 
-          chart.data.labels=items.map(x=>fmtLocal(x.loggedAt));
-          chart.data.datasets[0].data=items.map(x=>x.weightKg);
-          chart.data.datasets[1].data=items.map(x=>{
-            const bf=calcBodyFat(x.weightKg,hM,age,gender);
-            return Number.isFinite(bf)?bf:null;
-          });
-          chart.update();
-          toast("グラフを更新しました");
-          document.getElementById("last-updated").textContent="最終更新:"+new Date().toLocaleString();
-        }catch(e){console.error(e);toast(e.message,"err");}
-        finally{setBusy(false);}
+          const fromVal=$from.value;
+          const fromISO=fromVal? new Date(fromVal).toISOString() : "1970-01-01T00:00:00Z";
+          const url=`${BASE_URL}/weights?from=${encodeURIComponent(fromISO)}`;
+
+          const res=await fetch(url,{ headers: window.getAuthHeader() });
+          const text=await res.text();
+          if(!res.ok) throw new Error(`GET 失敗: ${res.status} ${text}`);
+          const json=JSON.parse(text);
+          const items=(json.items||[]).slice().sort((a,b)=> a.loggedAt.localeCompare(b.loggedAt));
+
+          chart.data.labels = items.map(x=> fmtLocal(x.loggedAt));
+          chart.data.datasets[0].data = items.map(x=> Number(x.weightKg));
+
+          // 体脂肪率を計算（1.20*BMI + 0.23*年齢 − 10.8*性別 − 5.4）
+          let fats = [];
+          if(profile && Number(profile.heightCm)>0 && profile.gender){
+            const h = Number(profile.heightCm)/100;
+            const age = calcAgeFromBirthDate(profile.birthDate) ?? 30;
+            const sex = (String(profile.gender).toLowerCase()==='male') ? 1 : 0;
+            fats = items.map(x=>{
+              const w = Number(x.weightKg);
+              const bmi = w/(h*h);
+              return 1.20*bmi + 0.23*age - 10.8*sex - 5.4;
+            });
+          }
+          chart.data.datasets[1].data = fats;
+          chart.update('none');
+
+          if(items.length===0){
+            log("データはありません"); toast("データはありません","ok");
+          }else{
+            log(`GET OK (${items.length}件)\n`+JSON.stringify(items.slice(-10),null,2));
+            toast("グラフを更新しました");
+          }
+          document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
+        }catch(e){
+          console.error(e); log(e.message||e); toast(e.message||e,"err");
+        }finally{ setBusy(false); }
       }
 
+      // ====== 体重を1件追加（POST） ======
       async function addWeight(){
         try{
           setBusy(true,["add"]);
-          const input=prompt("今日の体重(kg)を入力:","62.8");
-          if(input==null)return;
-          const w=Number(input);
-          if(!Number.isFinite(w))return toast("数値を入力してください","err");
+          const input=prompt("今日の体重(kg)を入力:", "62.8");
+          if(input==null) return;
+          const weight=Number(input);
+          if(!Number.isFinite(weight)) return toast("数値を入力してください","err");
+
           const res=await fetch(`${BASE_URL}/weights`,{
             method:"POST",
-            headers:{ "Content-Type":"application/json", ...window.getAuthHeader()},
-            body:JSON.stringify({weightKg:w})
+            headers:{ "Content-Type":"application/json", ...window.getAuthHeader() },
+            body:JSON.stringify({ weightKg:weight }),
           });
-          const t=await res.text();if(!res.ok)throw new Error(`POST失敗:${res.status} ${t}`);
-          toast("追加しました");await fetchAndDraw();
-        }catch(e){toast(e.message,"err");}
-        finally{setBusy(false,["add"]);}
+          const text=await res.text();
+          if(!res.ok) throw new Error(`POST 失敗: ${res.status} ${text}`);
+          log(`POST OK\n${text}`); toast("追加しました");
+          await fetchAndDraw();
+        }catch(e){
+          console.error(e); log(e.message||e); toast(e.message||e,"err");
+        }finally{ setBusy(false,["add"]); }
       }
 
+      // ====== 初期化 ======
       initChart();
-      document.getElementById("load").onclick=fetchAndDraw;
-      document.getElementById("add").onclick=addWeight;
-      fetchAndDraw();
+      document.getElementById("load").addEventListener("click", fetchAndDraw);
+      document.getElementById("add").addEventListener("click", addWeight);
+      // 初期表示
+      (async ()=>{ try{ await fetchProfile(); await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();
     </script>
   </body>
 </html>
+```
