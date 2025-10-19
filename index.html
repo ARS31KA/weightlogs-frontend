@@ -61,7 +61,7 @@
       .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
       label{color:var(--muted); font-size:13px}
       input{
-        background:#f8fbff; color:var(--text);
+        background:#f8fbff; color:#0c1b36;
         border:1px solid var(--line); border-radius:12px; padding:10px 12px; outline:none;
       }
       input[type="datetime-local"]{min-width:240px}
@@ -146,6 +146,17 @@
         document.getElementById("from").value=local;
       })();
 
+      // ====== 体重軸の“ゆるやか可変”レンジ計算 ======
+      function calcWeightRange(weights){
+        if(!weights || weights.length===0) return {min:40, max:90};
+        const wmin = Math.min(...weights);
+        const wmax = Math.max(...weights);
+        const padKg = 2;                        // 上下に2kg余白
+        const lo = Math.floor((wmin - padKg)/5)*5;
+        const hi = Math.ceil((wmax + padKg)/5)*5;
+        return { min: Math.max(30, lo), max: Math.min(150, hi) };
+      }
+
       // ====== Chart.js 初期化 ======
       let chart,lastItems=[];
       function initChart(){
@@ -173,7 +184,7 @@
             maintainAspectRatio:false,
             plugins:{
               legend:{ labels:{ color:"var(--muted)" } },
-              // ★ ツールチップ：色と内容を明示
+              // ツールチップ（見やすい配色）
               tooltip:{
                 enabled:true,
                 backgroundColor:"#ffffff",
@@ -193,11 +204,25 @@
                 }
               }
             },
+            // ★ 軸ラベルを追加 & 右軸は固定レンジ
             scales:{
-              x:{grid:{color:grid},ticks:{color:"var(--muted)"}},
-              yWeight:{position:'left',grid:{color:grid},ticks:{color:"var(--muted)"}},
-              yFat:{position:'right',grid:{drawOnChartArea:false},
-                    ticks:{color:"var(--muted)",callback:v=>`${v}%`}}
+              x:{
+                grid:{color:grid},ticks:{color:"var(--muted)"},
+                title:{display:true,text:"日時 (ローカル)",color:"var(--muted)"}
+              },
+              yWeight:{
+                position:'left',
+                grid:{color:grid},ticks:{color:"var(--muted)"},
+                suggestedMin:40,suggestedMax:90, // 初期値（後でデータに合わせて上書き）
+                title:{display:true,text:"体重 (kg)",color:"var(--muted)"}
+              },
+              yFat:{
+                position:'right',
+                grid:{drawOnChartArea:false},
+                ticks:{color:"var(--muted)",callback:v=>`${v}%`},
+                min:5,max:45, // 固定域で安定表示
+                title:{display:true,text:"体脂肪率 (%)",color:"var(--muted)"}
+              }
             }
           },
           plugins:[ChartDataLabels]
@@ -275,9 +300,18 @@
           // 削除用に保持
           lastItems=series.map(p=>({loggedAt:p.date,weightKg:p.weight}));
 
+          // データ反映
+          const weights=series.map(p=>Number(p.weight));
+          const fats=series.map(p=>Number(p.bodyFat));
           chart.data.labels=series.map(p=>fmtLocal(p.date));
-          chart.data.datasets[0].data=series.map(p=>Number(p.weight));   // 体重(kg)
-          chart.data.datasets[1].data=series.map(p=>Number(p.bodyFat));  // 体脂肪(%)
+          chart.data.datasets[0].data=weights; // 体重(kg)
+          chart.data.datasets[1].data=fats;    // 体脂肪(%)
+
+          // ★ 体重軸のレンジを“ゆるやか可変”で上書き
+          const {min,max}=calcWeightRange(weights);
+          chart.options.scales.yWeight.min=min;
+          chart.options.scales.yWeight.max=max;
+
           chart.update('none');
 
           document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
@@ -299,7 +333,7 @@
           const res=await fetch(`${BASE_URL}/weights`,{
             method:"POST",
             headers:{"Content-Type":"application/json",...window.getAuthHeader()},
-            body:JSON.stringify({weightKg:weight}),  // サーバ側で weight / weightKg 両対応にしておくと安心
+            body:JSON.stringify({weightKg:weight}),  // サーバ側は weight / weightKg 両対応にしておく
           });
           const text=await res.text();
           if(!res.ok)throw new Error(`POST 失敗: ${res.status} ${text}`);
