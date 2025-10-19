@@ -413,6 +413,7 @@ async function fetchSummary() {
   return json; // { profile, series: [{date,weight,bmi,bodyFat}, ...] }*/
   headers['x-fitsnap-sub'] = 'e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ←あなたのsub(UUID)
   const res = await fetch(SUMMARY_URL, { headers });
+  return json;
 }
 
 async function fetchAndDraw() {
@@ -494,6 +495,7 @@ async function fetchAndDraw() {
     </script>
   </body>
 </html>
+
 
 
 
