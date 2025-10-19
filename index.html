@@ -74,12 +74,14 @@
       .btn-primary{background: linear-gradient(90deg, var(--accent), var(--accent2));
         border-color:transparent; color:#fff;}
       .btn-primary:hover{filter:brightness(1.06)}
+      .btn-danger{ border-color:#ffc9c9; background:#fff4f4; color:#b00020; } /* logout用 */
+      .btn-danger:hover{ background:#ffffff; border-color:#ff9c9c; }
       .chartbox{position:relative;width:100%;height:520px;border:1px dashed var(--line);
         border-radius:12px;background:var(--chip)}
       .chartbox canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
       .small{font-size:13px; color:var(--muted)}
       .toast{position:fixed; right:20px; bottom:20px; z-index:9999; background:#fff;
-        border:1px solid var(--line); color:#text; padding:12px 14px; border-radius:12px;
+        border:1px solid var(--line); color:#0c1b36; padding:12px 14px; border-radius:12px;
         box-shadow:0 6px 18px rgba(17,32,64,.12); display:none; max-width:380px}
       #log{display:none}
     </style>
@@ -88,11 +90,13 @@
     <div class="container">
       <header class="apphead">
         <div class="logo">FS</div>
-        <div><h1><span class="brand-accent">FitSnap</span></h1></div>
+        <div style="flex:1 1 auto"><h1><span class="brand-accent">FitSnap</span></h1></div>
+        <!-- ★ ログアウト -->
+        <button id="logout" class="btn btn-danger" title="ログアウト">ログアウト</button>
       </header>
 
       <div class="card" style="margin-bottom:14px">
-        <div class="toolbar">
+        <div class="toolbar" style="align-items:center">
           <div style="display:flex;gap:8px;align-items:center;">
             <label>期間 from</label>
             <input id="from" type="datetime-local">
@@ -116,6 +120,7 @@
       // ====== 設定 ======
       const BASE_URL = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
       const SUMMARY_URL = "https://9mqisvjaqf.execute-api.us-east-1.amazonaws.com/metrics/summary";
+      const LOGOUT_URL = "https://face-login-1013-921500610446.s3.us-east-1.amazonaws.com/index.html"; // ← ここにログイン画面URLを入れると、そのページへ遷移します（空なら完了ページ表示）
 
       // ====== ユーティリティ ======
       const pad = n=>String(n).padStart(2,"0");
@@ -192,7 +197,6 @@
             maintainAspectRatio:false,
             plugins:{
               legend:{ labels:{ color:"var(--muted)" } },
-              // ツールチップ（見やすい配色）
               tooltip:{
                 enabled:true,
                 backgroundColor:"#ffffff",
@@ -212,7 +216,6 @@
                 }
               }
             },
-            // 軸ラベル + 右軸は固定レンジ
             scales:{
               x:{
                 grid:{color:grid},ticks:{color:"var(--muted)"},
@@ -344,11 +347,36 @@
         finally{setBusy(false,["add"]);}
       }
 
+      // ====== ログアウト ======
+      function renderLoggedOut(){
+        document.body.innerHTML = `
+          <div style="min-height:100dvh;display:grid;place-items:center;background:linear-gradient(180deg,#f8fbff,#f3f6fb)">
+            <div style="background:#fff;border:1px solid #dfe7f4;border-radius:16px;padding:28px 24px;box-shadow:0 8px 24px rgba(17,32,64,.08);max-width:460px;text-align:center">
+              <div style="font-size:22px;font-weight:800;letter-spacing:.3px;margin-bottom:6px">ログアウト完了</div>
+              <div style="color:#5e6b86;margin-bottom:18px">ご利用ありがとうございました。</div>
+              <button onclick="location.reload()" class="btn" style="padding:10px 16px">戻る</button>
+            </div>
+          </div>
+        `;
+      }
+      function doLogout(){
+        try{ localStorage.removeItem('idToken'); }catch(e){}
+        if (LOGOUT_URL && typeof LOGOUT_URL === 'string' && LOGOUT_URL.trim() !== "") {
+          location.href = LOGOUT_URL;
+        } else {
+          renderLoggedOut();
+        }
+      }
+
       // ====== 初期化 ======
-      initChart();
-      document.getElementById("load").addEventListener("click",fetchAndDraw);
-      document.getElementById("add").addEventListener("click",addWeight);
-      (async()=>{try{await fetchAndDraw();}catch(e){toast(e.message||e,"err");}})();
+      function init(){
+        initChart();
+        document.getElementById("load").addEventListener("click",fetchAndDraw);
+        document.getElementById("add").addEventListener("click",addWeight);
+        document.getElementById("logout").addEventListener("click", doLogout);
+        (async()=>{try{await fetchAndDraw();}catch(e){toast(e.message||e,"err");}})();
+      }
+      init();
     </script>
   </body>
 </html>
