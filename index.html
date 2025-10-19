@@ -169,20 +169,72 @@
                display:ctx=>ctx.dataIndex===ctx.chart.data.datasets[1].data.length-1}}
           ]},
           options:{
-            responsive:true,maintainAspectRatio:false,
-            plugins:{legend:{labels:{color:"var(--muted)"}},
-              tooltip:{backgroundColor:"#fff",borderColor:"#d7dfec",borderWidth:1,
-                callbacks:{label:ctx=>{
-                  const y=ctx.parsed.y;return ctx.dataset.yAxisID==='yFat'?` ${y.toFixed(1)} %`:` ${y.toFixed(1)} kg`;
-                }}}},scales:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{
+              legend:{ labels:{ color:"var(--muted)" } },
+              // ★ ツールチップ：色と内容を明示
+              tooltip:{
+                enabled:true,
+                backgroundColor:"#ffffff",
+                borderColor:"#d7dfec",
+                borderWidth:1,
+                titleColor:"#0c1b36",
+                bodyColor:"#334568",
+                footerColor:"#334568",
+                callbacks:{
+                  title:items=>items.length?items[0].label:"",
+                  label:ctx=>{
+                    const y=Number(ctx.parsed.y);
+                    return ctx.dataset.yAxisID==='yFat'
+                      ? ` 体脂肪率: ${y.toFixed(1)} %`
+                      : ` 体重: ${y.toFixed(1)} kg`;
+                  }
+                }
+              }
+            },
+            scales:{
               x:{grid:{color:grid},ticks:{color:"var(--muted)"}},
               yWeight:{position:'left',grid:{color:grid},ticks:{color:"var(--muted)"}},
-              yFat:{position:'right',grid:{drawOnChartArea:false},ticks:{color:"var(--muted)",callback:v=>`${v}%`}}
-            }},plugins:[ChartDataLabels]
+              yFat:{position:'right',grid:{drawOnChartArea:false},
+                    ticks:{color:"var(--muted)",callback:v=>`${v}%`}}
+            }
+          },
+          plugins:[ChartDataLabels]
+        });
+
+        // === ダブルクリックで削除（当たり判定を緩く） ===
+        const canvas=ctx.canvas;
+        canvas.addEventListener('dblclick', async (evt)=>{
+          try{
+            const points=chart.getElementsAtEventForMode(
+              evt,'nearest',{intersect:false,axis:'x'},true
+            );
+            if(!points || points.length===0) return;
+            const index=points[0].index;
+            const target=lastItems[index];
+            if(!target || !target.loggedAt) return;
+
+            const dateStr=fmtLocal(target.loggedAt);
+            const ok=confirm(`このデータを削除しますか？\n日時: ${dateStr}\n体重: ${target.weightKg} kg`);
+            if(!ok) return;
+
+            const url=`${BASE_URL}/weights?loggedAt=${encodeURIComponent(target.loggedAt)}`;
+            const headers=(()=>{try{return window.getAuthHeader();}catch{ return {}; }})();
+            const res=await fetch(url,{method:'DELETE',headers});
+            const text=await res.text();
+            if(!res.ok) throw new Error(`DELETE 失敗: ${res.status} ${text}`);
+
+            toast("削除しました");
+            await fetchAndDraw();
+          }catch(e){
+            console.error(e);
+            toast(e.message||e,"err");
+          }
         });
       }
 
-      // ====== IDトークンから sub 抽出 ======
+      // ====== IDトークンから sub 抽出（必要時に使用可） ======
       function getSubFromIdToken(){
         const t=localStorage.getItem('idToken'); if(!t) return null;
         const parts=t.split('.'); if(parts.length<2) return null;
@@ -193,7 +245,7 @@
       let profile=null;
       async function fetchSummary(){
         let headers={};
-        headers['x-fitsnap-sub']='e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ← あなたのsub
+        headers['x-fitsnap-sub']='e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ← あなたのsub（暫定）
         const res=await fetch(SUMMARY_URL,{headers});
         const text=await res.text();
         if(!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
@@ -220,10 +272,12 @@
             });
           }
 
+          // 削除用に保持
           lastItems=series.map(p=>({loggedAt:p.date,weightKg:p.weight}));
+
           chart.data.labels=series.map(p=>fmtLocal(p.date));
-          chart.data.datasets[0].data=series.map(p=>Number(p.weight));
-          chart.data.datasets[1].data=series.map(p=>Number(p.bodyFat));
+          chart.data.datasets[0].data=series.map(p=>Number(p.weight));   // 体重(kg)
+          chart.data.datasets[1].data=series.map(p=>Number(p.bodyFat));  // 体脂肪(%)
           chart.update('none');
 
           document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
@@ -245,7 +299,7 @@
           const res=await fetch(`${BASE_URL}/weights`,{
             method:"POST",
             headers:{"Content-Type":"application/json",...window.getAuthHeader()},
-            body:JSON.stringify({weightKg:weight}),
+            body:JSON.stringify({weightKg:weight}),  // サーバ側で weight / weightKg 両対応にしておくと安心
           });
           const text=await res.text();
           if(!res.ok)throw new Error(`POST 失敗: ${res.status} ${text}`);
