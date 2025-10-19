@@ -1,7 +1,4 @@
-了解！添付の `index.html` をベースに、**固定の `x-fitsnap-sub` を廃止**して **`idToken` から `sub` を動的取得**するように直した完全版です（コピペ可）。
-※ JWT Authorizer を付けた場合は `Authorization` を優先し、未設定なら `x-fitsnap-sub` を送ります。
 
-```html
 <!DOCTYPE html>
 <html lang="ja">
   <head>
@@ -398,3 +395,4 @@
 ```
 
 これで、ログインしたユーザーごとに `sub` が自動で送られ、特定ユーザーに固定される問題は解消されます。
+
