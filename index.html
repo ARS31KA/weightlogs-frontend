@@ -5,7 +5,7 @@
     <title>FitSnap</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- BEGIN: Token Receiver (place this at the very top) -->
+    <!-- BEGIN: Token Receiver -->
     <script>
     (function(){
       const qs=new URLSearchParams(location.search);
@@ -13,8 +13,7 @@
       const tok=qs.get('id_token')||qs.get('token')||hs.get('id_token')||hs.get('token');
       if(tok){
         localStorage.setItem('idToken', tok);
-        try{history.replaceState({}, "", location.pathname + location.search.replace(/(\?|&)id_token=[^&#]*/,'').replace(/(\?|&)token=[^&#]*/,'').replace(/\?$/,'') );}catch(e){}
-        try{history.replaceState({}, "", location.pathname + location.search);}catch(e){}
+        try{history.replaceState({}, "", location.pathname);}catch(e){}
       }
       window.getAuthHeader=function(){
         const t=localStorage.getItem('idToken');
@@ -39,9 +38,7 @@
       html,body{height:100%}
       body{
         margin:0; padding:28px;
-        background:
-          radial-gradient(1200px 600px at 20% -10%, var(--bg1) 0%, var(--bg0) 60%),
-          linear-gradient(180deg, var(--bg1), var(--bg0));
+        background:radial-gradient(1200px 600px at 20% -10%, var(--bg1) 0%, var(--bg0) 60%),linear-gradient(180deg, var(--bg1), var(--bg0));
         color:var(--text);
         font:16px/1.7 system-ui, Segoe UI, Helvetica, Arial;
       }
@@ -52,9 +49,9 @@
         background: conic-gradient(from 210deg,var(--accent),#7f9cfb,var(--accent2));
         box-shadow:0 10px 22px rgba(47,124,246,.25);
         display:grid; place-items:center; color:#fff; font-weight:900;
-        letter-spacing:.5px; font-size:18px;
+        font-size:18px;
       }
-      h1{margin:0; font-size:28px; font-weight:900; letter-spacing:.3px}
+      h1{margin:0; font-size:28px; font-weight:900;}
       .brand-accent{background:linear-gradient(90deg,var(--accent),var(--accent2));
         -webkit-background-clip:text;background-clip:text;color:transparent}
       .card{
@@ -118,384 +115,151 @@
     <script>
       // ====== 設定 ======
       const BASE_URL = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
-
       const SUMMARY_URL = "https://9mqisvjaqf.execute-api.us-east-1.amazonaws.com/metrics/summary";
-  
-    // IDトークンから sub を取り出す（JWTのペイロードをBase64URLデコード）
-    function getSubFromIdToken() {
-      const t = localStorage.getItem('idToken');
-      if (!t) return null;
-      const parts = t.split('.');
-      if (parts.length < 2) return null;
-      try {
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        return payload.sub || null;
-      } catch (e) {
-        return null;
-      }
-    }
-
-      // ====== 要素 ======
-      const $from  = document.getElementById("from");
-      const $log   = document.getElementById("log");
-      const $toast = document.getElementById("toast");
-
-      // ====== 状態（直近の items を保持して削除に使う） ======
-      let lastItems = []; // [{loggedAt, weightKg, note}, ...]
 
       // ====== ユーティリティ ======
-      const pad = (n)=> String(n).padStart(2,"0");
-      function fmtLocal(iso){
+      const pad = n=>String(n).padStart(2,"0");
+      const fmtLocal=iso=>{
         const d=new Date(iso); if(isNaN(d)) return iso;
         return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      }
-      function toast(msg, type="ok", ms=2600){
-        $toast.className = `toast ${type}`;
-        $toast.textContent = String(msg);
-        $toast.style.display = 'block';
-        clearTimeout($toast._t);
-        $toast._t = setTimeout(()=> $toast.style.display='none', ms);
-      }
-      function setBusy(b, ids=["load","add"]){
+      };
+      const toast=(msg,type="ok",ms=2600)=>{
+        const t=document.getElementById("toast");
+        t.className=`toast ${type}`;
+        t.textContent=String(msg);
+        t.style.display='block';
+        clearTimeout(t._t);
+        t._t=setTimeout(()=>t.style.display='none',ms);
+      };
+      const log=msg=>document.getElementById("log").textContent=String(msg);
+      const setBusy=(b,ids=["load","add"])=>{
         ids.forEach(id=>{
           const el=document.getElementById(id);
-          el.disabled = b;
-          el.style.opacity = b ? 0.6 : 1;
-          el.style.cursor  = b ? "wait" : "pointer";
+          el.disabled=b; el.style.opacity=b?0.6:1; el.style.cursor=b?"wait":"pointer";
         });
-      }
-      function log(msg){ $log.textContent=String(msg); }
+      };
 
       // 直近1か月を既定
-      (function setDefaultFrom(){
+      (()=>{
         const d=new Date(); d.setMonth(d.getMonth()-1);
         const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-        $from.value=local;
+        document.getElementById("from").value=local;
       })();
 
       // ====== Chart.js 初期化 ======
-      let chart;
+      let chart,lastItems=[];
       function initChart(){
-        const ctx = document.getElementById("chart").getContext('2d');
-        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-        const grid   = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
-        const fatCol = getComputedStyle(document.documentElement).getPropertyValue('--fat').trim();
+        const ctx=document.getElementById("chart").getContext('2d');
+        const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        const grid=getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
+        const fatCol=getComputedStyle(document.documentElement).getPropertyValue('--fat').trim();
 
-        chart = new Chart(ctx, {
-          type: "line",
-          data: { labels: [], datasets: [
-            {
-              label: "体重 (kg)",
-              yAxisID: 'yWeight',
-              data: [],
-              tension: 0.2,
-              borderWidth: 3,
-              pointRadius: 4,
-              pointHoverRadius: 6,
-              borderColor: accent,
-              backgroundColor: "rgba(47,124,246,0.10)",
-              fill: true,
-              datalabels: {
-                color: "#0c1b36",
-                align: 'right', anchor: 'end', offset: 6, clip: false,
-                formatter: (v)=> `${Number(v).toFixed(1)} kg`,
-                font: { size: 12, weight: '600' },
-                display: (ctx)=>{
-                  const n = ctx.chart.data.datasets[0].data.length;
-                  if (ctx.dataIndex === n-1) return true;
-                  if(n>40) return ctx.dataIndex%2===0;
-                  return true;
-                }
-              }
-            },
-            {
-              label: "体脂肪率 (%)",
-              yAxisID: 'yFat',
-              data: [],
-              tension: 0.25,
-              borderWidth: 4,
-              pointRadius: 5,
-              pointHoverRadius: 7,
-              borderColor: fatCol,
-              backgroundColor: "rgba(245,92,166,0.15)",
-              fill: false,
-              datalabels: {
-                color: fatCol,
-                align: 'right',
-                anchor: 'end',
-                offset: 6,
-                clip: false,
-                formatter: (v)=> `${Number(v).toFixed(1)} %`,
-                font: { size: 12, weight: '700' },
-                display: (ctx)=>{
-                  const n = ctx.chart.data.datasets[1].data.length;
-                  if (ctx.dataIndex === n-1) return true;
-                  if (n > 40) return ctx.dataIndex % 2 === 0;
-                  return true;
-                }
-              }
-            }
+        chart=new Chart(ctx,{
+          type:"line",
+          data:{labels:[],datasets:[
+            {label:"体重 (kg)",yAxisID:'yWeight',data:[],tension:0.2,borderWidth:3,pointRadius:4,borderColor:accent,
+             backgroundColor:"rgba(47,124,246,0.10)",fill:true,
+             datalabels:{color:"#0c1b36",align:'right',anchor:'end',offset:6,clip:false,
+               formatter:v=>`${Number(v).toFixed(1)} kg`,font:{size:12,weight:'600'},
+               display:ctx=>ctx.dataIndex===ctx.chart.data.datasets[0].data.length-1}},
+            {label:"体脂肪率 (%)",yAxisID:'yFat',data:[],tension:0.25,borderWidth:4,pointRadius:5,borderColor:fatCol,
+             backgroundColor:"rgba(245,92,166,0.15)",fill:false,
+             datalabels:{color:fatCol,align:'right',anchor:'end',offset:6,clip:false,
+               formatter:v=>`${Number(v).toFixed(1)} %`,font:{size:12,weight:'700'},
+               display:ctx=>ctx.dataIndex===ctx.chart.data.datasets[1].data.length-1}}
           ]},
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 250 },
-            interaction: { mode: "nearest", intersect: false },
-            plugins: {
-              legend: { labels: { color: "var(--muted)" } },
-              tooltip: {
-                backgroundColor: "#ffffff", borderColor: "#d7dfec", borderWidth: 1,
-                titleColor: "#0c1b36", bodyColor: "#334568",
-                callbacks: {
-                  label: (ctx)=>{
-                    const y = ctx.parsed.y;
-                    return ctx.dataset.yAxisID==='yFat' ? ` ${y.toFixed(1)} %` : ` ${y.toFixed(1)} kg`;
-                  },
-                  title: (items)=> items.map(it=> it.label)
-                }
-              }
-            },
-            scales: {
-              x: {
-                grid: { color: grid }, ticks: { color: "var(--muted)" },
-                title: { display: true, text: "日時 (ローカル)", color: "var(--muted)" },
-              },
-              yWeight: {
-                position:'left',
-                grid: { color: grid }, ticks: { color: "var(--muted)" },
-                suggestedMin: 40, suggestedMax: 90,
-                title: { display: true, text: "kg", color: "var(--muted)" },
-              },
-              yFat: {
-                position:'right',
-                grid: { drawOnChartArea:false },
-                ticks: { color: "var(--muted)", callback:(v)=> `${v}%` },
-                suggestedMin: 5, suggestedMax: 40,
-                title: { display: true, text: "%", color: "var(--muted)" },
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
-        });
-
-        // === ダブルクリックで削除 ===
-        const canvas = ctx.canvas;
-        canvas.addEventListener('dblclick', async (evt)=>{
-          try{
-            // クリック点に最も近い要素（点）を取得（交差必須）
-            const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-            if (!points || points.length === 0) return;
-
-            const { datasetIndex, index } = points[0];
-
-            // index は labels & lastItems と同じ並び（fetchAndDraw で sort 済み）
-            const target = lastItems[index];
-            if (!target || !target.loggedAt) return;
-
-            const dateStr = fmtLocal(target.loggedAt);
-            const ok = confirm(`このデータを削除しますか？\n日時: ${dateStr}\n体重: ${target.weightKg} kg`);
-            if (!ok) return;
-
-            // API 呼び出し（DELETE /weights?loggedAt=...）
-            const url = `${BASE_URL}/weights?loggedAt=${encodeURIComponent(target.loggedAt)}`;
-            const res = await fetch(url, { method: 'DELETE', headers: window.getAuthHeader() });
-            const text = await res.text();
-            if (!res.ok) throw new Error(`DELETE 失敗: ${res.status} ${text}`);
-
-            toast("削除しました");
-            await fetchAndDraw(); // 再取得して両データセットを更新
-          }catch(e){
-            console.error(e);
-            toast(e.message || e, "err");
-          }
+          options:{
+            responsive:true,maintainAspectRatio:false,
+            plugins:{legend:{labels:{color:"var(--muted)"}},
+              tooltip:{backgroundColor:"#fff",borderColor:"#d7dfec",borderWidth:1,
+                callbacks:{label:ctx=>{
+                  const y=ctx.parsed.y;return ctx.dataset.yAxisID==='yFat'?` ${y.toFixed(1)} %`:` ${y.toFixed(1)} kg`;
+                }}}},scales:{
+              x:{grid:{color:grid},ticks:{color:"var(--muted)"}},
+              yWeight:{position:'left',grid:{color:grid},ticks:{color:"var(--muted)"}},
+              yFat:{position:'right',grid:{drawOnChartArea:false},ticks:{color:"var(--muted)",callback:v=>`${v}%`}}
+            }},plugins:[ChartDataLabels]
         });
       }
 
-      // ====== 年齢計算 ======
-      function calcAgeFromBirthDate(yyyyMmDd){
-        if(!/^\d{4}-\d{2}-\d{2}$/.test(yyyyMmDd||"")) return null;
-        const [y,m,d]=yyyyMmDd.split('-').map(Number);
-        const t=new Date(); let age=t.getFullYear()-y;
-        const passed=(t.getMonth()+1>m)||((t.getMonth()+1===m)&&(t.getDate()>=d));
-        if(!passed) age--;
-        return age;
+      // ====== IDトークンから sub 抽出 ======
+      function getSubFromIdToken(){
+        const t=localStorage.getItem('idToken'); if(!t) return null;
+        const parts=t.split('.'); if(parts.length<2) return null;
+        try{const payload=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));return payload.sub||null;}catch(e){return null;}
       }
 
-      // ====== プロフィール取得 ======
-      /*let profile = null; // { heightCm, birthDate, gender }
-      async function fetchProfile(){
-        const res=await fetch(`${BASE_URL}/profile`,{ headers: window.getAuthHeader() });
+      // ====== /metrics/summary を取得 ======
+      let profile=null;
+      async function fetchSummary(){
+        let headers={};
+        headers['x-fitsnap-sub']='e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ← あなたのsub
+        const res=await fetch(SUMMARY_URL,{headers});
         const text=await res.text();
-        if(!res.ok) throw new Error(`GET /profile 失敗: ${res.status} ${text}`);
-        const json=JSON.parse(text);
-        profile = json.profile || null;
-        return profile;
+        if(!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
+        const data=JSON.parse(text);
+        if(!data || typeof data!=='object' || !data.profile || !Array.isArray(data.series))
+          throw new Error("API payload shape invalid");
+        return data;
       }
 
-      // ====== データ取得 → グラフ描画 ======
+      // ====== グラフ描画 ======
       async function fetchAndDraw(){
         try{
           setBusy(true);
-          if(!profile){ await fetchProfile(); }
+          const data=await fetchSummary();
+          profile=data.profile||null;
 
-          const fromVal=$from.value;
-          const fromISO=fromVal? new Date(fromVal).toISOString() : "1970-01-01T00:00:00Z";
-          const url=`${BASE_URL}/weights?from=${encodeURIComponent(fromISO)}`;
-
-          const res=await fetch(url,{ headers: window.getAuthHeader() });
-          const text=await res.text();
-          if(!res.ok) throw new Error(`GET 失敗: ${res.status} ${text}`);
-          const json=JSON.parse(text);
-
-          // 並びを確定し、lastItems に保持（削除時に loggedAt を使う）
-          lastItems = (json.items||[]).slice().sort((a,b)=> a.loggedAt.localeCompare(b.loggedAt));
-
-          chart.data.labels = lastItems.map(x=> fmtLocal(x.loggedAt));
-          chart.data.datasets[0].data = lastItems.map(x=> Number(x.weightKg));
-
-          // 体脂肪率を計算
-          let fats = [];
-          if(profile && Number(profile.heightCm)>0 && profile.gender){
-            const h = Number(profile.heightCm)/100;
-            const age = (function(){
-              const a = profile.birthDate ? (()=>{
-                const t=new Date();
-                const [y,m,d]=profile.birthDate.split('-').map(Number);
-                let A = t.getFullYear()-y;
-                const passed=(t.getMonth()+1>m)||((t.getMonth()+1===m)&&(t.getDate()>=d));
-                if(!passed) A--;
-                return A;
-              })() : null;
-              return a ?? 30;
-            })();
-            const sex = (String(profile.gender).toLowerCase()==='male') ? 1 : 0;
-            fats = lastItems.map(x=>{
-              const w = Number(x.weightKg);
-              const bmi = w/(h*h);
-              return 1.20*bmi + 0.23*age - 10.8*sex - 5.4;
+          const fromVal=document.getElementById("from").value;
+          const fromISO=fromVal?new Date(fromVal).toISOString():null;
+          let series=Array.isArray(data.series)?data.series.slice():[];
+          if(fromISO){
+            series=series.filter(p=>{
+              const d=/^\d{8}$/.test(p.date)?new Date(`${p.date.slice(0,4)}-${p.date.slice(4,6)}-${p.date.slice(6,8)}T00:00:00Z`):new Date(p.date);
+              return d>=new Date(fromISO);
             });
           }
-          chart.data.datasets[1].data = fats;
+
+          lastItems=series.map(p=>({loggedAt:p.date,weightKg:p.weight}));
+          chart.data.labels=series.map(p=>fmtLocal(p.date));
+          chart.data.datasets[0].data=series.map(p=>Number(p.weight));
+          chart.data.datasets[1].data=series.map(p=>Number(p.bodyFat));
           chart.update('none');
 
-          if(lastItems.length===0){
-            log("データはありません"); toast("データはありません","ok");
-          }else{
-            log(`GET OK (${lastItems.length}件)\n`+JSON.stringify(lastItems.slice(-10),null,2));
-            toast("グラフを更新しました");
-          }
           document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
-        }catch(e){
-          console.error(e); log(e.message||e); toast(e.message||e,"err");
-        }finally{ setBusy(false); }
-      }*/
-      // ====== 置き換え（ここから） ======
-let profile = null; // { studentId, height, age, sex }
 
-async function fetchSummary() {
-  // 1) ヘッダーの準備
-  // JWT Authorizerなし → x-fitsnap-sub を付ける
-  // JWT Authorizerあり → Authorization を付ける（getAuthHeader）
-  let headers = {};
-  /*
-  // まずは Authorization を優先（JWT Authorizerを付けた時に自動でこちらが効く）
-  try { headers = window.getAuthHeader(); } catch (e) {}
-  if (!headers.Authorization) {
-    const sub = getSubFromIdToken();
-    if (!sub) throw new Error("sub を取得できません。URLに ?id_token=... で渡すか、JWT Authorizerを設定してください。");
-    headers['x-fitsnap-sub'] = sub;
-  }
+          if(series.length===0){log("データはありません");toast("データはありません","ok");}
+          else{log(`OK (${series.length}件)`);toast("グラフを更新しました");}
+        }catch(e){console.error(e);log(e.message||e);toast(e.message||e,"err");}
+        finally{setBusy(false);}
+      }
 
-  const res = await fetch(SUMMARY_URL, { headers });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
-  const json = JSON.parse(text);
-  return json; // { profile, series: [{date,weight,bmi,bodyFat}, ...] }*/
-  headers['x-fitsnap-sub'] = 'e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ←あなたのsub(UUID)
-  const res = await fetch(SUMMARY_URL, { headers });
-  return json;
-}
-
-async function fetchAndDraw() {
-  try {
-    setBusy(true);
-    const json = await fetchSummary();
-    profile = json.profile || null;
-
-    // 日付フィルタ（From）適用（あれば）
-    const fromVal = $from.value;
-    const fromISO = fromVal ? new Date(fromVal).toISOString() : null;
-    let series = Array.isArray(json.series) ? json.series.slice() : [];
-    if (fromISO) {
-      series = series.filter(p => {
-        // p.date は ISO 文字列 or "YYYYMMDD"。どちらでも比較できるよう工夫
-        const d = /^\d{8}$/.test(p.date) ? new Date(p.date.slice(0,4)+"-"+p.date.slice(4,6)+"-"+p.date.slice(6,8)+"T00:00:00Z") : new Date(p.date);
-        return d >= new Date(fromISO);
-      });
-    }
-
-    // 表示用データ（lastItems も更新しておく：削除機能で使うなら loggedAt 相当を入れてください）
-    lastItems = series.map(p => ({ loggedAt: p.date, weightKg: p.weight }));
-
-    // ラベルはローカル時刻で
-    const labels = series.map(p => fmtLocal(p.date));
-    const weights = series.map(p => Number(p.weight));
-    const fats = series.map(p => Number(p.bodyFat));
-
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = weights; // 体重(kg)
-    chart.data.datasets[1].data = fats;    // 体脂肪(%)
-    chart.update('none');
-
-    document.getElementById('last-updated').textContent = "最終更新: " + new Date().toLocaleString();
-
-    if (series.length === 0) {
-      log("データはありません"); toast("データはありません","ok");
-    } else {
-      log(`OK (${series.length}件)`); toast("グラフを更新しました");
-    }
-  } catch (e) {
-    console.error(e); log(e.message || e); toast(e.message || e, "err");
-  } finally {
-    setBusy(false);
-  }
-}
-// ====== 置き換え（ここまで） ======
-
-
-      // ====== 体重を1件追加（POST） ======
+      // ====== POST: 今日の体重追加 ======
       async function addWeight(){
         try{
           setBusy(true,["add"]);
-          const input=prompt("今日の体重(kg)を入力:", "62.8");
-          if(input==null) return;
+          const input=prompt("今日の体重(kg)を入力:","62.8");
+          if(input==null)return;
           const weight=Number(input);
-          if(!Number.isFinite(weight)) return toast("数値を入力してください","err");
-
+          if(!Number.isFinite(weight))return toast("数値を入力してください","err");
           const res=await fetch(`${BASE_URL}/weights`,{
             method:"POST",
-            headers:{ "Content-Type":"application/json", ...window.getAuthHeader() },
-            body:JSON.stringify({ weightKg:weight }),
+            headers:{"Content-Type":"application/json",...window.getAuthHeader()},
+            body:JSON.stringify({weightKg:weight}),
           });
           const text=await res.text();
-          if(!res.ok) throw new Error(`POST 失敗: ${res.status} ${text}`);
-          log(`POST OK\n${text}`); toast("追加しました");
+          if(!res.ok)throw new Error(`POST 失敗: ${res.status} ${text}`);
+          log(`POST OK\n${text}`);toast("追加しました");
           await fetchAndDraw();
-        }catch(e){
-          console.error(e); log(e.message||e); toast(e.message||e,"err");
-        }finally{ setBusy(false,["add"]); }
+        }catch(e){console.error(e);log(e.message||e);toast(e.message||e,"err");}
+        finally{setBusy(false,["add"]);}
       }
 
       // ====== 初期化 ======
       initChart();
-      document.getElementById("load").addEventListener("click", fetchAndDraw);
-      document.getElementById("add").addEventListener("click", addWeight);
-      (async ()=>{ try{ await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();
-      /*(async ()=>{ try{ await fetchProfile(); await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();*/
+      document.getElementById("load").addEventListener("click",fetchAndDraw);
+      document.getElementById("add").addEventListener("click",addWeight);
+      (async()=>{try{await fetchAndDraw();}catch(e){toast(e.message||e,"err");}})();
     </script>
   </body>
 </html>
-
-
-
-
