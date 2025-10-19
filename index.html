@@ -397,6 +397,7 @@ async function fetchSummary() {
   // JWT Authorizerなし → x-fitsnap-sub を付ける
   // JWT Authorizerあり → Authorization を付ける（getAuthHeader）
   let headers = {};
+  /*
   // まずは Authorization を優先（JWT Authorizerを付けた時に自動でこちらが効く）
   try { headers = window.getAuthHeader(); } catch (e) {}
   if (!headers.Authorization) {
@@ -409,7 +410,9 @@ async function fetchSummary() {
   const text = await res.text();
   if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
   const json = JSON.parse(text);
-  return json; // { profile, series: [{date,weight,bmi,bodyFat}, ...] }
+  return json; // { profile, series: [{date,weight,bmi,bodyFat}, ...] }*/
+  headers['x-fitsnap-sub'] = 'e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ←あなたのsub(UUID)
+  const res = await fetch(SUMMARY_URL, { headers });
 }
 
 async function fetchAndDraw() {
@@ -491,5 +494,6 @@ async function fetchAndDraw() {
     </script>
   </body>
 </html>
+
 
 
