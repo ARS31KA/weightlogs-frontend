@@ -119,6 +119,22 @@
       // ====== 設定 ======
       const BASE_URL = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
 
+      const SUMMARY_URL = "https://9mqisvjaqf.execute-api.us-east-1.amazonaws.com/metrics/summary";
+  
+    // IDトークンから sub を取り出す（JWTのペイロードをBase64URLデコード）
+    function getSubFromIdToken() {
+      const t = localStorage.getItem('idToken');
+      if (!t) return null;
+      const parts = t.split('.');
+      if (parts.length < 2) return null;
+      try {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return payload.sub || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
       // ====== 要素 ======
       const $from  = document.getElementById("from");
       const $log   = document.getElementById("log");
@@ -306,7 +322,7 @@
       }
 
       // ====== プロフィール取得 ======
-      let profile = null; // { heightCm, birthDate, gender }
+      /*let profile = null; // { heightCm, birthDate, gender }
       async function fetchProfile(){
         const res=await fetch(`${BASE_URL}/profile`,{ headers: window.getAuthHeader() });
         const text=await res.text();
@@ -372,7 +388,76 @@
         }catch(e){
           console.error(e); log(e.message||e); toast(e.message||e,"err");
         }finally{ setBusy(false); }
-      }
+      }*/
+      // ====== 置き換え（ここから） ======
+let profile = null; // { studentId, height, age, sex }
+
+async function fetchSummary() {
+  // 1) ヘッダーの準備
+  // JWT Authorizerなし → x-fitsnap-sub を付ける
+  // JWT Authorizerあり → Authorization を付ける（getAuthHeader）
+  let headers = {};
+  // まずは Authorization を優先（JWT Authorizerを付けた時に自動でこちらが効く）
+  try { headers = window.getAuthHeader(); } catch (e) {}
+  if (!headers.Authorization) {
+    const sub = getSubFromIdToken();
+    if (!sub) throw new Error("sub を取得できません。URLに ?id_token=... で渡すか、JWT Authorizerを設定してください。");
+    headers['x-fitsnap-sub'] = sub;
+  }
+
+  const res = await fetch(SUMMARY_URL, { headers });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
+  const json = JSON.parse(text);
+  return json; // { profile, series: [{date,weight,bmi,bodyFat}, ...] }
+}
+
+async function fetchAndDraw() {
+  try {
+    setBusy(true);
+    const json = await fetchSummary();
+    profile = json.profile || null;
+
+    // 日付フィルタ（From）適用（あれば）
+    const fromVal = $from.value;
+    const fromISO = fromVal ? new Date(fromVal).toISOString() : null;
+    let series = Array.isArray(json.series) ? json.series.slice() : [];
+    if (fromISO) {
+      series = series.filter(p => {
+        // p.date は ISO 文字列 or "YYYYMMDD"。どちらでも比較できるよう工夫
+        const d = /^\d{8}$/.test(p.date) ? new Date(p.date.slice(0,4)+"-"+p.date.slice(4,6)+"-"+p.date.slice(6,8)+"T00:00:00Z") : new Date(p.date);
+        return d >= new Date(fromISO);
+      });
+    }
+
+    // 表示用データ（lastItems も更新しておく：削除機能で使うなら loggedAt 相当を入れてください）
+    lastItems = series.map(p => ({ loggedAt: p.date, weightKg: p.weight }));
+
+    // ラベルはローカル時刻で
+    const labels = series.map(p => fmtLocal(p.date));
+    const weights = series.map(p => Number(p.weight));
+    const fats = series.map(p => Number(p.bodyFat));
+
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = weights; // 体重(kg)
+    chart.data.datasets[1].data = fats;    // 体脂肪(%)
+    chart.update('none');
+
+    document.getElementById('last-updated').textContent = "最終更新: " + new Date().toLocaleString();
+
+    if (series.length === 0) {
+      log("データはありません"); toast("データはありません","ok");
+    } else {
+      log(`OK (${series.length}件)`); toast("グラフを更新しました");
+    }
+  } catch (e) {
+    console.error(e); log(e.message || e); toast(e.message || e, "err");
+  } finally {
+    setBusy(false);
+  }
+}
+// ====== 置き換え（ここまで） ======
+
 
       // ====== 体重を1件追加（POST） ======
       async function addWeight(){
@@ -405,3 +490,4 @@
     </script>
   </body>
 </html>
+
