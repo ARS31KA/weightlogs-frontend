@@ -486,8 +486,10 @@ async function fetchAndDraw() {
       initChart();
       document.getElementById("load").addEventListener("click", fetchAndDraw);
       document.getElementById("add").addEventListener("click", addWeight);
-      (async ()=>{ try{ await fetchProfile(); await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();
+      (async ()=>{ try{ await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();
+      /*(async ()=>{ try{ await fetchProfile(); await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();*/
     </script>
   </body>
 </html>
+
 
