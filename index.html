@@ -24,20 +24,6 @@
     </script>
     <!-- END: Token Receiver -->
 
-    <!-- idToken から sub を取り出す関数 -->
-    <script>
-    function getSubFromIdToken() {
-      const t = localStorage.getItem('idToken');
-      if (!t) return null;
-      const parts = t.split('.');
-      if (parts.length < 2) return null;
-      try {
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        return payload.sub || null;
-      } catch (e) { return null; }
-    }
-    </script>
-
     <!-- Chart.js & DataLabels -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
@@ -88,14 +74,12 @@
       .btn-primary{background: linear-gradient(90deg, var(--accent), var(--accent2));
         border-color:transparent; color:#fff;}
       .btn-primary:hover{filter:brightness(1.06)}
-      .btn-danger{ border-color:#ffc9c9; background:#fff4f4; color:#b00020; }
-      .btn-danger:hover{ background:#ffffff; border-color:#ff9c9c; }
       .chartbox{position:relative;width:100%;height:520px;border:1px dashed var(--line);
         border-radius:12px;background:var(--chip)}
       .chartbox canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
       .small{font-size:13px; color:var(--muted)}
       .toast{position:fixed; right:20px; bottom:20px; z-index:9999; background:#fff;
-        border:1px solid var(--line); color:#0c1b36; padding:12px 14px; border-radius:12px;
+        border:1px solid var(--line); color:#text; padding:12px 14px; border-radius:12px;
         box-shadow:0 6px 18px rgba(17,32,64,.12); display:none; max-width:380px}
       #log{display:none}
     </style>
@@ -104,12 +88,11 @@
     <div class="container">
       <header class="apphead">
         <div class="logo">FS</div>
-        <div style="flex:1 1 auto"><h1><span class="brand-accent">FitSnap</span></h1></div>
-        <button id="logout" class="btn btn-danger" title="ログアウト">ログアウト</button>
+        <div><h1><span class="brand-accent">FitSnap</span></h1></div>
       </header>
 
       <div class="card" style="margin-bottom:14px">
-        <div class="toolbar" style="align-items:center">
+        <div class="toolbar">
           <div style="display:flex;gap:8px;align-items:center;">
             <label>期間 from</label>
             <input id="from" type="datetime-local">
@@ -133,7 +116,6 @@
       // ====== 設定 ======
       const BASE_URL = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
       const SUMMARY_URL = "https://9mqisvjaqf.execute-api.us-east-1.amazonaws.com/metrics/summary";
-      const LOGOUT_URL = "https://face-login-1013-921500610446.s3.us-east-1.amazonaws.com/index.html";
 
       // ====== ユーティリティ ======
       const pad = n=>String(n).padStart(2,"0");
@@ -169,7 +151,7 @@
         if(!weights || weights.length===0) return {min:40, max:90};
         const wmin = Math.min(...weights);
         const wmax = Math.max(...weights);
-        const padKg = 2;
+        const padKg = 2;                        // 上下に2kg余白
         const lo = Math.floor((wmin - padKg)/5)*5;
         const hi = Math.ceil((wmax + padKg)/5)*5;
         return { min: Math.max(30, lo), max: Math.min(150, hi) };
@@ -189,25 +171,36 @@
             {label:"体重 (kg)",yAxisID:'yWeight',data:[],tension:0.2,borderWidth:3,pointRadius:4,borderColor:accent,
              backgroundColor:"rgba(47,124,246,0.10)",fill:true,
              datalabels:{
-               color:"#0c1b36", align:'right', anchor:'end', offset:6, clip:false,
+               color:"#0c1b36",
+               align:'right', anchor:'end', offset:6, clip:false,
                formatter:v=>`${Number(v).toFixed(1)} kg`,
-               font:{ size:12, weight:'600' }, display:true
+               font:{ size:12, weight:'600' },
+               display:true  // ← 常に表示（マーカー横）
              }},
             {label:"体脂肪率 (%)",yAxisID:'yFat',data:[],tension:0.25,borderWidth:4,pointRadius:5,borderColor:fatCol,
              backgroundColor:"rgba(245,92,166,0.15)",fill:false,
              datalabels:{
-               color:fatCol, align:'right', anchor:'end', offset:6, clip:false,
+               color:fatCol,
+               align:'right', anchor:'end', offset:6, clip:false,
                formatter:v=>`${Number(v).toFixed(1)} %`,
-               font:{ size:12, weight:'700' }, display:true
+               font:{ size:12, weight:'700' },
+               display:true  // ← 常に表示（マーカー横）
              }}
           ]},
           options:{
-            responsive:true, maintainAspectRatio:false,
+            responsive:true,
+            maintainAspectRatio:false,
             plugins:{
               legend:{ labels:{ color:"var(--muted)" } },
+              // ツールチップ（見やすい配色）
               tooltip:{
-                enabled:true, backgroundColor:"#ffffff", borderColor:"#d7dfec", borderWidth:1,
-                titleColor:"#0c1b36", bodyColor:"#334568",
+                enabled:true,
+                backgroundColor:"#ffffff",
+                borderColor:"#d7dfec",
+                borderWidth:1,
+                titleColor:"#0c1b36",
+                bodyColor:"#334568",
+                footerColor:"#334568",
                 callbacks:{
                   title:items=>items.length?items[0].label:"",
                   label:ctx=>{
@@ -219,20 +212,23 @@
                 }
               }
             },
+            // 軸ラベル + 右軸は固定レンジ
             scales:{
               x:{
                 grid:{color:grid},ticks:{color:"var(--muted)"},
                 title:{display:true,text:"日時 (ローカル)",color:"var(--muted)"}
               },
               yWeight:{
-                position:'left', grid:{color:grid}, ticks:{color:"var(--muted)"},
-                suggestedMin:40, suggestedMax:90,
+                position:'left',
+                grid:{color:grid},ticks:{color:"var(--muted)"},
+                suggestedMin:40,suggestedMax:90, // 初期値（後で上書き）
                 title:{display:true,text:"体重 (kg)",color:"var(--muted)"}
               },
               yFat:{
-                position:'right', grid:{drawOnChartArea:false},
+                position:'right',
+                grid:{drawOnChartArea:false},
                 ticks:{color:"var(--muted)",callback:v=>`${v}%`},
-                min:5, max:45,
+                min:5,max:45, // 固定域で安定表示
                 title:{display:true,text:"体脂肪率 (%)",color:"var(--muted)"}
               }
             }
@@ -240,11 +236,13 @@
           plugins:[ChartDataLabels]
         });
 
-        // === ダブルクリックで削除 ===
+        // === ダブルクリックで削除（当たり判定を緩く） ===
         const canvas=ctx.canvas;
         canvas.addEventListener('dblclick', async (evt)=>{
           try{
-            const points=chart.getElementsAtEventForMode(evt,'nearest',{intersect:false,axis:'x'},true);
+            const points=chart.getElementsAtEventForMode(
+              evt,'nearest',{intersect:false,axis:'x'},true
+            );
             if(!points || points.length===0) return;
             const index=points[0].index;
             const target=lastItems[index];
@@ -269,41 +267,16 @@
         });
       }
 
-      // ====== /metrics/summary を取得（Authorization が無ければ ?sub= を付ける） ======
+      // ====== /metrics/summary を取得 ======
       let profile=null;
       async function fetchSummary(){
-        // 1) Authorization が使えれば使う
-        let headers = {};
-        let auth = null;
-        try {
-          const h = window.getAuthHeader();  // { Authorization: 'Bearer ...' }
-          auth = h && h.Authorization;
-        } catch(e) {}
-        if (auth) headers.Authorization = auth;
-
-        // 2) sub を用意（devSub → URL ?sub → idToken → prompt）
-        let sub = null;
-        if (!auth) {
-          sub = localStorage.getItem('devSub');
-          if (!sub) {
-            const qs = new URLSearchParams(location.search);
-            sub = qs.get('sub');
-          }
-          if (!sub) sub = getSubFromIdToken();
-          if (!sub) {
-            sub = prompt("ログインしていないようです。開発用として sub を入力してください。");
-            if (sub) localStorage.setItem('devSub', sub);
-          }
-          if (!sub) throw new Error("sub を特定できません（devSub 未保存 & idToken なし）。");
-        }
-
-        // 3) 呼び出し（auth あり:そのまま / なし: ?sub=）
-        const url = auth ? SUMMARY_URL : `${SUMMARY_URL}?sub=${encodeURIComponent(sub)}`;
-        const res  = await fetch(url, { headers, cache: 'no-store' });
-        const text = await res.text();
-        if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
-        const data = JSON.parse(text);
-        if (!data || typeof data!=='object' || !data.profile || !Array.isArray(data.series))
+        let headers={};
+        headers['x-fitsnap-sub']='e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ← あなたのsub（暫定）
+        const res=await fetch(SUMMARY_URL,{headers});
+        const text=await res.text();
+        if(!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
+        const data=JSON.parse(text);
+        if(!data || typeof data!=='object' || !data.profile || !Array.isArray(data.series))
           throw new Error("API payload shape invalid");
         return data;
       }
@@ -320,21 +293,22 @@
           let series=Array.isArray(data.series)?data.series.slice():[];
           if(fromISO){
             series=series.filter(p=>{
-              const d=/^\d{8}$/.test(p.date)
-                ? new Date(`${p.date.slice(0,4)}-${p.date.slice(4,6)}-${p.date.slice(6,8)}T00:00:00Z`)
-                : new Date(p.date);
+              const d=/^\d{8}$/.test(p.date)?new Date(`${p.date.slice(0,4)}-${p.date.slice(4,6)}-${p.date.slice(6,8)}T00:00:00Z`):new Date(p.date);
               return d>=new Date(fromISO);
             });
           }
 
+          // 削除用に保持
           lastItems=series.map(p=>({loggedAt:p.date,weightKg:p.weight}));
 
+          // データ反映
           const weights=series.map(p=>Number(p.weight));
           const fats=series.map(p=>Number(p.bodyFat));
           chart.data.labels=series.map(p=>fmtLocal(p.date));
-          chart.data.datasets[0].data=weights;
-          chart.data.datasets[1].data=fats;
+          chart.data.datasets[0].data=weights; // 体重(kg)
+          chart.data.datasets[1].data=fats;    // 体脂肪(%)
 
+          // 体重軸のレンジを“ゆるやか可変”で上書き
           const {min,max}=calcWeightRange(weights);
           chart.options.scales.yWeight.min=min;
           chart.options.scales.yWeight.max=max;
@@ -360,7 +334,7 @@
           const res=await fetch(`${BASE_URL}/weights`,{
             method:"POST",
             headers:{"Content-Type":"application/json",...window.getAuthHeader()},
-            body:JSON.stringify({weightKg:weight}),
+            body:JSON.stringify({weightKg:weight}),  // サーバ側は weight / weightKg 両対応にしておく
           });
           const text=await res.text();
           if(!res.ok)throw new Error(`POST 失敗: ${res.status} ${text}`);
@@ -370,36 +344,11 @@
         finally{setBusy(false,["add"]);}
       }
 
-      // ====== ログアウト ======
-      function renderLoggedOut(){
-        document.body.innerHTML = `
-          <div style="min-height:100dvh;display:grid;place-items:center;background:linear-gradient(180deg,#f8fbff,#f3f6fb)">
-            <div style="background:#fff;border:1px solid #dfe7f4;border-radius:16px;padding:28px 24px;box-shadow:0 8px 24px rgba(17,32,64,.08);max-width:460px;text-align:center">
-              <div style="font-size:22px;font-weight:800;letter-spacing:.3px;margin-bottom:6px">ログアウト完了</div>
-              <div style="color:#5e6b86;margin-bottom:18px">ご利用ありがとうございました。</div>
-              <button onclick="location.reload()" class="btn" style="padding:10px 16px">戻る</button>
-            </div>
-          </div>
-        `;
-      }
-      function doLogout(){
-        try{ localStorage.removeItem('idToken'); }catch(e){}
-        if (LOGOUT_URL && typeof LOGOUT_URL === 'string' && LOGOUT_URL.trim() !== "") {
-          location.href = LOGOUT_URL;
-        } else {
-          renderLoggedOut();
-        }
-      }
-
       // ====== 初期化 ======
-      function init(){
-        initChart();
-        document.getElementById("load").addEventListener("click",fetchAndDraw);
-        document.getElementById("add").addEventListener("click",addWeight);
-        document.getElementById("logout").addEventListener("click", doLogout);
-        (async()=>{ try{ await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();
-      }
-      init();
+      initChart();
+      document.getElementById("load").addEventListener("click",fetchAndDraw);
+      document.getElementById("add").addEventListener("click",addWeight);
+      (async()=>{try{await fetchAndDraw();}catch(e){toast(e.message||e,"err");}})();
     </script>
   </body>
 </html>
