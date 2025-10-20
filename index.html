@@ -24,7 +24,7 @@
     </script>
     <!-- END: Token Receiver -->
 
-    <!-- sub を idToken から取り出す関数（必要時に利用） -->
+    <!-- idToken から sub を取り出す関数 -->
     <script>
     function getSubFromIdToken() {
       const t = localStorage.getItem('idToken');
@@ -240,7 +240,7 @@
           plugins:[ChartDataLabels]
         });
 
-        // === ダブルクリックで削除（当たり判定を緩く） ===
+        // === ダブルクリックで削除 ===
         const canvas=ctx.canvas;
         canvas.addEventListener('dblclick', async (evt)=>{
           try{
@@ -269,43 +269,36 @@
         });
       }
 
-      // ====== /metrics/summary を取得（Authorization なければ ?sub= を使う） ======
+      // ====== /metrics/summary を取得（Authorization が無ければ ?sub= を付ける） ======
       let profile=null;
       async function fetchSummary(){
-        // 1) 可能なら Authorization を使う
+        // 1) Authorization が使えれば使う
         let headers = {};
         let auth = null;
         try {
-          const h = window.getAuthHeader();  // Token Receiver が入っていれば使える
+          const h = window.getAuthHeader();  // { Authorization: 'Bearer ...' }
           auth = h && h.Authorization;
         } catch(e) {}
+        if (auth) headers.Authorization = auth;
 
-        // 2) sub を決める（devSub → idToken → 手入力）
+        // 2) sub を用意（devSub → URL ?sub → idToken → prompt）
         let sub = null;
         if (!auth) {
           sub = localStorage.getItem('devSub');
           if (!sub) {
-            const t = localStorage.getItem('idToken');
-            if (t) {
-              try {
-                const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-                sub = payload && payload.sub;
-              } catch(e) {}
-            }
+            const qs = new URLSearchParams(location.search);
+            sub = qs.get('sub');
           }
+          if (!sub) sub = getSubFromIdToken();
           if (!sub) {
             sub = prompt("ログインしていないようです。開発用として sub を入力してください。");
             if (sub) localStorage.setItem('devSub', sub);
           }
           if (!sub) throw new Error("sub を特定できません（devSub 未保存 & idToken なし）。");
-        } else {
-          headers.Authorization = auth;
         }
 
-        // 3) URL を組み立てて呼ぶ（ヘッダが無いときは ?sub=）
+        // 3) 呼び出し（auth あり:そのまま / なし: ?sub=）
         const url = auth ? SUMMARY_URL : `${SUMMARY_URL}?sub=${encodeURIComponent(sub)}`;
-        console.debug('[summary] GET', url, auth ? '(Authorization)' : '(?sub)');
-
         const res  = await fetch(url, { headers, cache: 'no-store' });
         const text = await res.text();
         if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
@@ -327,22 +320,21 @@
           let series=Array.isArray(data.series)?data.series.slice():[];
           if(fromISO){
             series=series.filter(p=>{
-              const d=/^\d{8}$/.test(p.date)?new Date(`${p.date.slice(0,4)}-${p.date.slice(4,6)}-${p.date.slice(6,8)}T00:00:00Z`):new Date(p.date);
+              const d=/^\d{8}$/.test(p.date)
+                ? new Date(`${p.date.slice(0,4)}-${p.date.slice(4,6)}-${p.date.slice(6,8)}T00:00:00Z`)
+                : new Date(p.date);
               return d>=new Date(fromISO);
             });
           }
 
-          // 削除用に保持
           lastItems=series.map(p=>({loggedAt:p.date,weightKg:p.weight}));
 
-          // データ反映
           const weights=series.map(p=>Number(p.weight));
           const fats=series.map(p=>Number(p.bodyFat));
           chart.data.labels=series.map(p=>fmtLocal(p.date));
           chart.data.datasets[0].data=weights;
           chart.data.datasets[1].data=fats;
 
-          // 体重軸レンジを“ゆるやか可変”で上書き
           const {min,max}=calcWeightRange(weights);
           chart.options.scales.yWeight.min=min;
           chart.options.scales.yWeight.max=max;
@@ -362,7 +354,7 @@
         try{
           setBusy(true,["add"]);
           const input=prompt("今日の体重(kg)を入力:","62.8");
-        if(input==null)return;
+          if(input==null)return;
           const weight=Number(input);
           if(!Number.isFinite(weight))return toast("数値を入力してください","err");
           const res=await fetch(`${BASE_URL}/weights`,{
