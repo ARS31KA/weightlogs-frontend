@@ -23,6 +23,18 @@
     })();
     </script>
     <!-- END: Token Receiver -->
+    <script>
+    function getSubFromIdToken() {
+      const t = localStorage.getItem('idToken');
+      if (!t) return null;
+      const parts = t.split('.');
+      if (parts.length < 2) return null;
+      try {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return payload.sub || null;
+      } catch (e) { return null; }
+    }
+    </script>
 
     <!-- Chart.js & DataLabels -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -274,7 +286,10 @@
       let profile=null;
       async function fetchSummary(){
         let headers={};
-        headers['x-fitsnap-sub']='e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ← あなたのsub（暫定）
+        /*headers['x-fitsnap-sub']='e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ← あなたのsub（暫定）*/
+        const sub = getSubFromIdToken();
+        if (!sub) throw new Error("idToken から sub を取得できません。ログイン状態を確認してください。");
+        headers['x-fitsnap-sub'] = sub;
         const res=await fetch(SUMMARY_URL,{headers});
         const text=await res.text();
         if(!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
@@ -380,3 +395,4 @@
     </script>
   </body>
 </html>
+
