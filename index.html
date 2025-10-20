@@ -295,7 +295,7 @@
           throw new Error("API payload shape invalid");
         return data;
       }:*/
-      async function fetchSummary(){
+      /*async function fetchSummary(){
       // 1) まず Authorization（JWT Authorizer を付けた場合）
       let headers = {};
       try {
@@ -319,8 +319,52 @@
     
         headers['x-fitsnap-sub'] = sub;
         console.debug('[summary] using x-fitsnap-sub header:', sub);
+      }*/
+      async function fetchSummary(){
+        // 1) 可能なら Authorization を使う
+        let headers = {};
+        let auth = null;
+        try {
+          const h = window.getAuthHeader();  // Token Receiver が入っていれば使える
+          auth = h && h.Authorization;
+        } catch(e) {}
+      
+        // 2) sub を決める（devSub → idToken からの sub → 手入力）
+        let sub = null;
+        if (!auth) {
+          sub = localStorage.getItem('devSub');
+          if (!sub) {
+            const t = localStorage.getItem('idToken');
+            if (t) {
+              try {
+                const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+                sub = payload && payload.sub;
+              } catch(e) {}
+            }
+          }
+          if (!sub) {
+            sub = prompt("ログインしていないようです。開発用として sub を入力してください。");
+            if (sub) localStorage.setItem('devSub', sub);
+          }
+          if (!sub) throw new Error("sub を特定できません（devSub 未保存 & idToken なし）。");
+        } else {
+          headers.Authorization = auth;
+        }
+      
+        // 3) URL を組み立てて呼ぶ
+        const url = auth ? SUMMARY_URL : `${SUMMARY_URL}?sub=${encodeURIComponent(sub)}`;
+        console.debug('[summary] GET', url, auth ? '(Authorization)' : '(?sub)');
+      
+        const res  = await fetch(url, { headers, cache: 'no-store' });
+        const text = await res.text();
+        if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
+        const data = JSON.parse(text);
+        if (!data || typeof data!=='object' || !data.profile || !Array.isArray(data.series))
+          throw new Error("API payload shape invalid");
+        return data;
       }
-    
+      
+          
       const res = await fetch(SUMMARY_URL, { headers });
       const text = await res.text();
       if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
@@ -429,6 +473,7 @@
     </script>
   </body>
 </html>
+
 
 
 
