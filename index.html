@@ -272,7 +272,7 @@
 
       // ====== /metrics/summary を取得 ======
       let profile=null;
-      async function fetchSummary(){
+      /*async function fetchSummary(){
         // 1) まず Authorization（JWT Authorizer を付けた場合）
         let headers = {};
         try {
@@ -294,7 +294,44 @@
         if(!data || typeof data!=='object' || !data.profile || !Array.isArray(data.series))
           throw new Error("API payload shape invalid");
         return data;
+      }:*/
+      async function fetchSummary(){
+      // 1) まず Authorization（JWT Authorizer を付けた場合）
+      let headers = {};
+      try {
+        headers = window.getAuthHeader(); // => { Authorization: 'Bearer <idToken>' }
+        console.debug('[summary] using Authorization header');
+      } catch (e) {
+        headers = {};
       }
+    
+      // 2) Authorizer未設定でも動くように、idToken から sub を動的付与
+      if (!headers.Authorization) {
+        const t = localStorage.getItem('idToken');
+        if (!t) throw new Error("idToken がありません。ログイン or ?id_token=... でアクセスしてください。");
+    
+        let sub = null;
+        try {
+          const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+          sub = payload.sub;
+        } catch(e) {}
+        if (!sub) throw new Error("idToken から sub を取り出せませんでした。");
+    
+        headers['x-fitsnap-sub'] = sub;
+        console.debug('[summary] using x-fitsnap-sub header:', sub);
+      }
+    
+      const res = await fetch(SUMMARY_URL, { headers });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
+      const data = JSON.parse(text);
+      if (!data || typeof data !== 'object' || !data.profile || !Array.isArray(data.series)) {
+        throw new Error("API payload shape invalid");
+      }
+      return data;
+    }
+
+      
 
       // ====== グラフ描画 ======
       async function fetchAndDraw(){
@@ -395,4 +432,5 @@
 ```
 
 これで、ログインしたユーザーごとに `sub` が自動で送られ、特定ユーザーに固定される問題は解消されます。
+
 
