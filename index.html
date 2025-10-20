@@ -23,6 +23,7 @@
     })();
     </script>
     <!-- END: Token Receiver -->
+
     <script>
     function getSubFromIdToken() {
       const t = localStorage.getItem('idToken');
@@ -44,7 +45,7 @@
       :root{
         --bg0:#f4f7fb; --bg1:#eaf0ff; --card:#ffffff; --text:#0c1b36;
         --muted:#5e6b86; --line:#d6deee; --accent:#2f7cf6; --accent2:#18c3a1;
-        --grid:#c9d6ee; --chip:#eff4ff; --fat:#f55ca6;
+        --grid:#c9d6ee; --chip:#eff4ff; --fat:#f55ca6; --target:#7b8798;
       }
       *{box-sizing:border-box}
       html,body{height:100%}
@@ -72,10 +73,11 @@
       }
       .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
       label{color:var(--muted); font-size:13px}
-      input{
+      input,select{
         background:#f8fbff; color:#0c1b36;
         border:1px solid var(--line); border-radius:12px; padding:10px 12px; outline:none;
       }
+      input[type="number"]{width:120px}
       input[type="datetime-local"]{min-width:240px}
       .btn{
         border:1px solid var(--line); background:#f8fbff; color:#0c1b36;
@@ -92,10 +94,31 @@
         border-radius:12px;background:var(--chip)}
       .chartbox canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
       .small{font-size:13px; color:var(--muted)}
+
+      /* セリフ／キャラ */
+      .coach-row{display:flex; gap:14px; align-items:flex-start}
+      .avatar{
+        width:64px;height:64px;border-radius:50%;
+        display:grid;place-items:center;font-size:30px;background:#fff;
+        border:1px solid var(--line); box-shadow:0 6px 16px rgba(17,32,64,.07);
+      }
+      .bubble{
+        position:relative; background:#fff; border:1px solid var(--line);
+        border-radius:14px; padding:12px 14px; box-shadow:0 6px 18px rgba(17,32,64,.08);
+        min-height:48px; display:flex; align-items:center; font-weight:600;
+      }
+      .bubble::before{
+        content:""; position:absolute; left:-10px; top:18px; width:0; height:0;
+        border-top:10px solid transparent; border-bottom:10px solid transparent;
+        border-right:10px solid #fff; filter:drop-shadow(0 0 0 var(--line));
+      }
       .toast{position:fixed; right:20px; bottom:20px; z-index:9999; background:#fff;
         border:1px solid var(--line); color:#0c1b36; padding:12px 14px; border-radius:12px;
         box-shadow:0 6px 18px rgba(17,32,64,.12); display:none; max-width:380px}
+
       #log{display:none}
+      .hr{height:1px;background:var(--line);margin:8px 0 12px}
+      .caps{font-size:12px;letter-spacing:.2px;color:var(--muted)}
     </style>
   </head>
   <body>
@@ -103,10 +126,10 @@
       <header class="apphead">
         <div class="logo">FS</div>
         <div style="flex:1 1 auto"><h1><span class="brand-accent">FitSnap</span></h1></div>
-        <!-- ★ ログアウト -->
         <button id="logout" class="btn btn-danger" title="ログアウト">ログアウト</button>
       </header>
 
+      <!-- 期間 & データ操作 -->
       <div class="card" style="margin-bottom:14px">
         <div class="toolbar" style="align-items:center">
           <div style="display:flex;gap:8px;align-items:center;">
@@ -116,6 +139,40 @@
           <button id="load" class="btn">グラフを表示</button>
           <button id="add" class="btn btn-primary">今日の体重を追加</button>
           <span id="last-updated" class="small" style="margin-left:auto">—</span>
+        </div>
+      </div>
+
+      <!-- 目標 & 口調/キャラ -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="toolbar">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label>目標体重</label>
+            <input id="target" type="number" step="0.1" placeholder="例: 62.0"> <span class="small">kg</span>
+            <button id="saveTarget" class="btn">保存</button>
+          </div>
+          <div class="hr" style="flex-basis:100%"></div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label>口調</label>
+            <select id="mode">
+              <option value="encourage">鼓舞（やさしめ）</option>
+              <option value="taunt">煽り（厳しめ）</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label>キャラ</label>
+            <select id="character">
+              <option value="coach">🔥 コーチ</option>
+              <option value="mascot">🐣 マスコット</option>
+              <option value="samurai">🗡️ サムライ</option>
+            </select>
+          </div>
+          <button id="testLine" class="btn">セリフをテスト</button>
+          <span class="small" id="goalHint" style="margin-left:auto">目標を設定すると点線が表示されます</span>
+        </div>
+        <div style="height:10px"></div>
+        <div class="coach-row">
+          <div id="avatar" class="avatar">🔥</div>
+          <div id="bubble" class="bubble">ここにキャラのセリフが表示されます</div>
         </div>
       </div>
 
@@ -132,7 +189,7 @@
       // ====== 設定 ======
       const BASE_URL = "https://2yn13gve38.execute-api.us-east-1.amazonaws.com/prod";
       const SUMMARY_URL = "https://9mqisvjaqf.execute-api.us-east-1.amazonaws.com/metrics/summary";
-      const LOGOUT_URL = "https://face-login-1013-921500610446.s3.us-east-1.amazonaws.com/index.html"; // ← ここにログイン画面URLを入れると、そのページへ遷移します（空なら完了ページ表示）
+      const LOGOUT_URL = "https://face-login-1013-921500610446.s3.us-east-1.amazonaws.com/index.html";
 
       // ====== ユーティリティ ======
       const pad = n=>String(n).padStart(2,"0");
@@ -149,12 +206,17 @@
         t._t=setTimeout(()=>t.style.display='none',ms);
       };
       const log=msg=>document.getElementById("log").textContent=String(msg);
-      const setBusy=(b,ids=["load","add"])=>{
+      const setBusy=(b,ids=["load","add","saveTarget","testLine"])=>{
         ids.forEach(id=>{
           const el=document.getElementById(id);
           el.disabled=b; el.style.opacity=b?0.6:1; el.style.cursor=b?"wait":"pointer";
         });
       };
+
+      // localStorage keys
+      const LS_TARGET="fs_targetWeight";
+      const LS_MODE="fs_motivationMode";
+      const LS_CHAR="fs_character";
 
       // 直近1か月を既定
       (()=>{
@@ -163,12 +225,12 @@
         document.getElementById("from").value=local;
       })();
 
-      // ====== 体重軸の“ゆるやか可変”レンジ計算 ======
+      // ====== 体重軸レンジ ======
       function calcWeightRange(weights){
         if(!weights || weights.length===0) return {min:40, max:90};
         const wmin = Math.min(...weights);
         const wmax = Math.max(...weights);
-        const padKg = 2;                        // 上下に2kg余白
+        const padKg = 2;
         const lo = Math.floor((wmin - padKg)/5)*5;
         const hi = Math.ceil((wmax + padKg)/5)*5;
         return { min: Math.max(30, lo), max: Math.min(150, hi) };
@@ -178,9 +240,11 @@
       let chart,lastItems=[];
       function initChart(){
         const ctx=document.getElementById("chart").getContext('2d');
-        const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-        const grid=getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
-        const fatCol=getComputedStyle(document.documentElement).getPropertyValue('--fat').trim();
+        const getCss=varname=>getComputedStyle(document.documentElement).getPropertyValue(varname).trim();
+        const accent=getCss('--accent');
+        const grid=getCss('--grid');
+        const fatCol=getCss('--fat');
+        const targetCol=getCss('--target');
 
         chart=new Chart(ctx,{
           type:"line",
@@ -192,7 +256,7 @@
                align:'right', anchor:'end', offset:6, clip:false,
                formatter:v=>`${Number(v).toFixed(1)} kg`,
                font:{ size:12, weight:'600' },
-               display:true  // ← 常に表示（マーカー横）
+               display:true
              }},
             {label:"体脂肪率 (%)",yAxisID:'yFat',data:[],tension:0.25,borderWidth:4,pointRadius:5,borderColor:fatCol,
              backgroundColor:"rgba(245,92,166,0.15)",fill:false,
@@ -201,8 +265,12 @@
                align:'right', anchor:'end', offset:6, clip:false,
                formatter:v=>`${Number(v).toFixed(1)} %`,
                font:{ size:12, weight:'700' },
-               display:true  // ← 常に表示（マーカー横）
-             }}
+               display:true
+             }},
+            // 目標ライン
+            {label:"目標 (kg)",yAxisID:'yWeight',data:[],tension:0,
+             borderWidth:2,pointRadius:0,borderColor:targetCol,borderDash:[6,6],fill:false,
+             datalabels:{display:false}}
           ]},
           options:{
             responsive:true,
@@ -216,14 +284,14 @@
                 borderWidth:1,
                 titleColor:"#0c1b36",
                 bodyColor:"#334568",
-                footerColor:"#334568",
                 callbacks:{
                   title:items=>items.length?items[0].label:"",
                   label:ctx=>{
                     const y=Number(ctx.parsed.y);
-                    return ctx.dataset.yAxisID==='yFat'
-                      ? ` 体脂肪率: ${y.toFixed(1)} %`
-                      : ` 体重: ${y.toFixed(1)} kg`;
+                    const id=ctx.datasetIndex;
+                    if(id===1) return ` 体脂肪率: ${y.toFixed(1)} %`;
+                    if(id===2) return ` 目標: ${y.toFixed(1)} kg`;
+                    return ` 体重: ${y.toFixed(1)} kg`;
                   }
                 }
               }
@@ -236,14 +304,14 @@
               yWeight:{
                 position:'left',
                 grid:{color:grid},ticks:{color:"var(--muted)"},
-                suggestedMin:40,suggestedMax:90, // 初期値（後で上書き）
+                suggestedMin:40,suggestedMax:90,
                 title:{display:true,text:"体重 (kg)",color:"var(--muted)"}
               },
               yFat:{
                 position:'right',
                 grid:{drawOnChartArea:false},
                 ticks:{color:"var(--muted)",callback:v=>`${v}%`},
-                min:5,max:45, // 固定域で安定表示
+                min:5,max:45,
                 title:{display:true,text:"体脂肪率 (%)",color:"var(--muted)"}
               }
             }
@@ -251,13 +319,11 @@
           plugins:[ChartDataLabels]
         });
 
-        // === ダブルクリックで削除（当たり判定を緩く） ===
+        // ダブルクリック削除
         const canvas=ctx.canvas;
         canvas.addEventListener('dblclick', async (evt)=>{
           try{
-            const points=chart.getElementsAtEventForMode(
-              evt,'nearest',{intersect:false,axis:'x'},true
-            );
+            const points=chart.getElementsAtEventForMode(evt,'nearest',{intersect:false,axis:'x'},true);
             if(!points || points.length===0) return;
             const index=points[0].index;
             const target=lastItems[index];
@@ -282,11 +348,10 @@
         });
       }
 
-      // ====== /metrics/summary を取得 ======
+      // ====== /metrics/summary ======
       let profile=null;
       async function fetchSummary(){
         let headers={};
-        /*headers['x-fitsnap-sub']='e4588458-20e1-7066-f8ee-62478d2c1c7a'; // ← あなたのsub（暫定）*/
         const sub = getSubFromIdToken();
         if (!sub) throw new Error("idToken から sub を取得できません。ログイン状態を確認してください。");
         headers['x-fitsnap-sub'] = sub;
@@ -300,6 +365,14 @@
       }
 
       // ====== グラフ描画 ======
+      function readTarget(){
+        const v = Number(localStorage.getItem(LS_TARGET));
+        return Number.isFinite(v)? v : null;
+      }
+      function writeTarget(v){
+        if(Number.isFinite(v)){ localStorage.setItem(LS_TARGET,String(v)); }
+      }
+
       async function fetchAndDraw(){
         try{
           setBusy(true);
@@ -316,23 +389,28 @@
             });
           }
 
-          // 削除用に保持
           lastItems=series.map(p=>({loggedAt:p.date,weightKg:p.weight}));
 
-          // データ反映
           const weights=series.map(p=>Number(p.weight));
           const fats=series.map(p=>Number(p.bodyFat));
           chart.data.labels=series.map(p=>fmtLocal(p.date));
-          chart.data.datasets[0].data=weights; // 体重(kg)
-          chart.data.datasets[1].data=fats;    // 体脂肪(%)
+          chart.data.datasets[0].data=weights;
+          chart.data.datasets[1].data=fats;
 
-          // 体重軸のレンジを“ゆるやか可変”で上書き
-          const {min,max}=calcWeightRange(weights);
+          // 目標ライン
+          const tg = readTarget();
+          const targetArr = (tg && chart.data.labels.length)
+            ? new Array(chart.data.labels.length).fill(tg)
+            : [];
+          chart.data.datasets[2].data = targetArr;
+          document.getElementById('goalHint').textContent = tg ? `目標: ${tg.toFixed(1)} kg` : '目標を設定すると点線が表示されます';
+
+          // 体重軸レンジ
+          const {min,max}=calcWeightRange(weights.length?weights.concat(tg||[]):weights);
           chart.options.scales.yWeight.min=min;
           chart.options.scales.yWeight.max=max;
 
           chart.update('none');
-
           document.getElementById('last-updated').textContent="最終更新: "+new Date().toLocaleString();
 
           if(series.length===0){log("データはありません");toast("データはありません","ok");}
@@ -341,7 +419,84 @@
         finally{setBusy(false);}
       }
 
-      // ====== POST: 今日の体重追加 ======
+      // ====== セリフ生成 ======
+      const characters = {
+        coach: {icon:"🔥", name:"コーチ"},
+        mascot:{icon:"🐣", name:"マスコット"},
+        samurai:{icon:"🗡️", name:"サムライ"}
+      };
+
+      function pick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+
+      function buildLine({weight, target, mode, achieved, diff}){
+        const d = Math.abs(diff).toFixed(1);
+        const c = document.getElementById("character").value;
+
+        const praise = {
+          coach: [
+            `やったな！目標クリアだ！この勢い、止めるなよ！`,
+            `完璧だ！今日の自分に拍手！次はキープだ！`
+          ],
+          mascot: [
+            `すごーい！目標達成だよ！えらいえらい！`,
+            `やったね！コツコツの勝利だよ！`
+          ],
+          samurai: [
+            `見事、目標成就。不断の稽古の賜物なり。`,
+            `誉れ高し。志、確かに通じた。`
+          ]
+        };
+
+        const encourage = {
+          coach: [
+            `あと ${d}kg！焦るな、今のペースでいける！`,
+            `大丈夫、${d}kgなんてすぐだ。水分と睡眠、見直していこう！`
+          ],
+          mascot: [
+            `あと ${d}kgだよ。いっしょにがんばろ…！`,
+            `もうちょっと！ストレッチしてリフレッシュしよ！`
+          ],
+          samurai: [
+            `残り ${d}kg。心乱さず、策を重ねよ。`,
+            `道半ば。食と眠、律し、歩みを止めるな。`
+          ]
+        };
+
+        const taunt = {
+          coach: [
+            `未達だ！あと ${d}kg。言い訳はゴミ箱に捨てろ、動け！`,
+            `まだいけるだろ？ ${d}kgごときで止まるな！`
+          ],
+          mascot: [
+            `あれれ〜？目標まだだよ？あと ${d}kg、がんばれ〜！`,
+            `むむっ…今日は惜しい！明日こそ決めよ！`
+          ],
+          samurai: [
+            `未だ目標に至らず。怠りあらば刃、鈍るのみ。残り ${d}kg。`,
+            `修行が足りぬ。覚悟を研ぎ澄ませ、あと ${d}kgだ。`
+          ]
+        };
+
+        if(achieved){
+          return pick(praise[c]);
+        }else{
+          return (mode==="taunt") ? pick(taunt[c]) : pick(encourage[c]);
+        }
+      }
+
+      function renderSpeech(line){
+        const charKey = document.getElementById("character").value;
+        const {icon,name}=characters[charKey]||characters.coach;
+        document.getElementById("avatar").textContent = icon;
+        document.getElementById("bubble").textContent = line || "……";
+      }
+
+      function getMode(){ return (localStorage.getItem(LS_MODE)||"encourage"); }
+      function setMode(v){ localStorage.setItem(LS_MODE, v); }
+      function getChar(){ return (localStorage.getItem(LS_CHAR)||"coach"); }
+      function setChar(v){ localStorage.setItem(LS_CHAR, v); }
+
+      // ====== 今日の体重追加 ======
       async function addWeight(){
         try{
           setBusy(true,["add"]);
@@ -349,14 +504,28 @@
           if(input==null)return;
           const weight=Number(input);
           if(!Number.isFinite(weight))return toast("数値を入力してください","err");
+
           const res=await fetch(`${BASE_URL}/weights`,{
             method:"POST",
             headers:{"Content-Type":"application/json",...window.getAuthHeader()},
-            body:JSON.stringify({weightKg:weight}),  // サーバ側は weight / weightKg 両対応にしておく
+            body:JSON.stringify({weightKg:weight}),
           });
           const text=await res.text();
           if(!res.ok)throw new Error(`POST 失敗: ${res.status} ${text}`);
+
           log(`POST OK\n${text}`);toast("追加しました");
+
+          // 目標比較 → セリフ
+          const target = readTarget();
+          if(target){
+            const achieved = (weight <= target);
+            const diff = weight - target; // 正:超過, 負:達成余裕
+            const line = buildLine({weight, target, mode:getMode(), achieved, diff});
+            renderSpeech(line);
+          }else{
+            renderSpeech("目標を設定するとコーチがコメントするよ！");
+          }
+
           await fetchAndDraw();
         }catch(e){console.error(e);log(e.message||e);toast(e.message||e,"err");}
         finally{setBusy(false,["add"]);}
@@ -384,15 +553,59 @@
       }
 
       // ====== 初期化 ======
+      function syncUIFromStorage(){
+        const t = readTarget();
+        if(t){ document.getElementById("target").value = t; }
+        const mode = getMode();
+        const char = getChar();
+        document.getElementById("mode").value = mode;
+        document.getElementById("character").value = char;
+        // 初期の顔とセリフ
+        renderSpeech("今日も記録していこう！");
+      }
+
       function init(){
         initChart();
+        syncUIFromStorage();
+
         document.getElementById("load").addEventListener("click",fetchAndDraw);
         document.getElementById("add").addEventListener("click",addWeight);
         document.getElementById("logout").addEventListener("click", doLogout);
+
+        document.getElementById("saveTarget").addEventListener("click",()=>{
+          const v = Number(document.getElementById("target").value);
+          if(!Number.isFinite(v)){ toast("目標体重は数値で入力してください","err"); return; }
+          writeTarget(v);
+          toast("目標体重を保存しました");
+          fetchAndDraw();
+        });
+
+        document.getElementById("mode").addEventListener("change",(e)=>{
+          setMode(e.target.value);
+          toast("口調を保存しました");
+        });
+        document.getElementById("character").addEventListener("change",(e)=>{
+          setChar(e.target.value);
+          // 顔をすぐ反映
+          const {icon}=characters[e.target.value]||characters.coach;
+          document.getElementById("avatar").textContent = icon;
+        });
+
+        document.getElementById("testLine").addEventListener("click",()=>{
+          const t = readTarget();
+          if(!t){ toast("まず目標体重を設定してください","err"); return; }
+          // 直近データ or 仮データでテスト
+          const last = lastItems[lastItems.length-1];
+          const weight = last? Number(last.weightKg) : t + 0.8; // データが無ければ未達っぽく
+          const achieved = (weight <= t);
+          const diff = weight - t;
+          const line = buildLine({weight, target:t, mode:getMode(), achieved, diff});
+          renderSpeech(line);
+        });
+
         (async()=>{try{await fetchAndDraw();}catch(e){toast(e.message||e,"err");}})();
       }
       init();
     </script>
   </body>
 </html>
-
