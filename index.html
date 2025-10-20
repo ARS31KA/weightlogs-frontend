@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
   <head>
@@ -25,7 +24,7 @@
     </script>
     <!-- END: Token Receiver -->
 
-    <!-- ★ sub を idToken から取り出す関数（追加） -->
+    <!-- sub を idToken から取り出す関数（必要時に利用） -->
     <script>
     function getSubFromIdToken() {
       const t = localStorage.getItem('idToken');
@@ -208,7 +207,7 @@
               legend:{ labels:{ color:"var(--muted)" } },
               tooltip:{
                 enabled:true, backgroundColor:"#ffffff", borderColor:"#d7dfec", borderWidth:1,
-                titleColor:"#0c1b36", bodyColor:"#334568", footerColor:"#334568",
+                titleColor:"#0c1b36", bodyColor:"#334568",
                 callbacks:{
                   title:items=>items.length?items[0].label:"",
                   label:ctx=>{
@@ -270,56 +269,8 @@
         });
       }
 
-      // ====== /metrics/summary を取得 ======
+      // ====== /metrics/summary を取得（Authorization なければ ?sub= を使う） ======
       let profile=null;
-      /*async function fetchSummary(){
-        // 1) まず Authorization（JWT Authorizer を付けた場合）
-        let headers = {};
-        try {
-          headers = window.getAuthHeader(); // { Authorization: 'Bearer ...' }
-        } catch(e) {
-          headers = {};
-        }
-        // 2) Authorizer未設定でも動くように、x-fitsnap-sub を動的付与
-        if (!headers.Authorization) {
-          const sub = getSubFromIdToken();
-          if (!sub) throw new Error("idToken から sub を取得できません。ログイン状態を確認してください。");
-          headers['x-fitsnap-sub'] = sub;
-        }
-
-        const res=await fetch(SUMMARY_URL,{headers});
-        const text=await res.text();
-        if(!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
-        const data=JSON.parse(text);
-        if(!data || typeof data!=='object' || !data.profile || !Array.isArray(data.series))
-          throw new Error("API payload shape invalid");
-        return data;
-      }:*/
-      /*async function fetchSummary(){
-      // 1) まず Authorization（JWT Authorizer を付けた場合）
-      let headers = {};
-      try {
-        headers = window.getAuthHeader(); // => { Authorization: 'Bearer <idToken>' }
-        console.debug('[summary] using Authorization header');
-      } catch (e) {
-        headers = {};
-      }
-    
-      // 2) Authorizer未設定でも動くように、idToken から sub を動的付与
-      if (!headers.Authorization) {
-        const t = localStorage.getItem('idToken');
-        if (!t) throw new Error("idToken がありません。ログイン or ?id_token=... でアクセスしてください。");
-    
-        let sub = null;
-        try {
-          const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-          sub = payload.sub;
-        } catch(e) {}
-        if (!sub) throw new Error("idToken から sub を取り出せませんでした。");
-    
-        headers['x-fitsnap-sub'] = sub;
-        console.debug('[summary] using x-fitsnap-sub header:', sub);
-      }*/
       async function fetchSummary(){
         // 1) 可能なら Authorization を使う
         let headers = {};
@@ -328,8 +279,8 @@
           const h = window.getAuthHeader();  // Token Receiver が入っていれば使える
           auth = h && h.Authorization;
         } catch(e) {}
-      
-        // 2) sub を決める（devSub → idToken からの sub → 手入力）
+
+        // 2) sub を決める（devSub → idToken → 手入力）
         let sub = null;
         if (!auth) {
           sub = localStorage.getItem('devSub');
@@ -350,11 +301,11 @@
         } else {
           headers.Authorization = auth;
         }
-      
-        // 3) URL を組み立てて呼ぶ
+
+        // 3) URL を組み立てて呼ぶ（ヘッダが無いときは ?sub=）
         const url = auth ? SUMMARY_URL : `${SUMMARY_URL}?sub=${encodeURIComponent(sub)}`;
         console.debug('[summary] GET', url, auth ? '(Authorization)' : '(?sub)');
-      
+
         const res  = await fetch(url, { headers, cache: 'no-store' });
         const text = await res.text();
         if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
@@ -363,19 +314,6 @@
           throw new Error("API payload shape invalid");
         return data;
       }
-      
-          
-      const res = await fetch(SUMMARY_URL, { headers });
-      const text = await res.text();
-      if (!res.ok) throw new Error(`GET /metrics/summary 失敗: ${res.status} ${text}`);
-      const data = JSON.parse(text);
-      if (!data || typeof data !== 'object' || !data.profile || !Array.isArray(data.series)) {
-        throw new Error("API payload shape invalid");
-      }
-      return data;
-    }
-
-      
 
       // ====== グラフ描画 ======
       async function fetchAndDraw(){
@@ -424,7 +362,7 @@
         try{
           setBusy(true,["add"]);
           const input=prompt("今日の体重(kg)を入力:","62.8");
-          if(input==null)return;
+        if(input==null)return;
           const weight=Number(input);
           if(!Number.isFinite(weight))return toast("数値を入力してください","err");
           const res=await fetch(`${BASE_URL}/weights`,{
@@ -467,13 +405,9 @@
         document.getElementById("load").addEventListener("click",fetchAndDraw);
         document.getElementById("add").addEventListener("click",addWeight);
         document.getElementById("logout").addEventListener("click", doLogout);
-        (async()=>{try{await fetchAndDraw();}catch(e){toast(e.message||e,"err");}})();
+        (async()=>{ try{ await fetchAndDraw(); } catch(e){ toast(e.message||e,"err"); } })();
       }
       init();
     </script>
   </body>
 </html>
-
-
-
-
